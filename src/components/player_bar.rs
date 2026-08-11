@@ -16,6 +16,7 @@ pub fn PlayerBar() -> Element {
     let mut vol_el: Signal<Option<HtmlElement>> = use_signal(|| None);
     let mut prog_el: Signal<Option<HtmlElement>> = use_signal(|| None);
 
+    // ─── Helpers cacheados ───
     fn calc_pct(el: &HtmlElement, client_x: f64) -> f64 {
         let rect = el.get_bounding_client_rect();
         let w = rect.width();
@@ -26,47 +27,41 @@ pub fn PlayerBar() -> Element {
         }
     }
 
+    // ─── Efecto drag: solo se ejecuta cuando cambia dragging_vol/prog ───
     use_effect(move || {
-        let is_dragging_vol = dragging_vol();
-        let is_dragging_prog = dragging_prog();
-
-        if !is_dragging_vol && !is_dragging_prog {
+        let is_dragging = dragging_vol() || dragging_prog();
+        if !is_dragging {
             return;
         }
 
         let win = window().expect("window");
         let doc = win.document().expect("document");
 
-        let on_move = Closure::<dyn FnMut(MouseEvent)>::new({
-            let vol_el = vol_el;
-            let prog_el = prog_el;
-            let mut volume = volume;
-            let mut progress = progress;
-            let dragging_vol = dragging_vol;
-            let dragging_prog = dragging_prog;
+        // Clonar signals UNA VEZ para los closures
+        let vol_el = vol_el;
+        let prog_el = prog_el;
+        let mut volume = volume;
+        let mut progress = progress;
+        let mut dragging_vol = dragging_vol;
+        let  mutdragging_prog = dragging_prog;
 
-            move |e: MouseEvent| {
-                let x = e.client_x() as f64;
-                if dragging_vol() {
-                    if let Some(el) = vol_el() {
-                        volume.set(calc_pct(&el, x));
-                    }
+        let on_move = Closure::<dyn FnMut(MouseEvent)>::new(move |e: MouseEvent| {
+            let x = e.client_x() as f64;
+            if dragging_vol() {
+                if let Some(el) = vol_el() {
+                    volume.set(calc_pct(&el, x));
                 }
-                if dragging_prog() {
-                    if let Some(el) = prog_el() {
-                        progress.set(calc_pct(&el, x));
-                    }
+            }
+            if dragging_prog() {
+                if let Some(el) = prog_el() {
+                    progress.set(calc_pct(&el, x));
                 }
             }
         });
 
-        let on_up = Closure::<dyn FnMut()>::new({
-            let mut dragging_vol = dragging_vol;
-            let mut dragging_prog = dragging_prog;
-            move || {
-                dragging_vol.set(false);
-                dragging_prog.set(false);
-            }
+        let on_up = Closure::<dyn FnMut()>::new(move || {
+            dragging_vol.set(false);
+            dragging_prog.set(false);
         });
 
         doc.add_event_listener_with_callback("mousemove", on_move.as_ref().unchecked_ref())
@@ -78,33 +73,68 @@ pub fn PlayerBar() -> Element {
         on_up.forget();
     });
 
-    let on_vol_down = move |e: Event<MouseData>| {
+    // ─── Handlers memorizados ───
+    let on_vol_scroll = use_callback(move |e: Event<WheelData>| {
+        e.prevent_default();
+        let delta_y = e.as_web_event()
+            .dyn_ref::<web_sys::WheelEvent>()
+            .map(|we| we.delta_y())
+            .unwrap_or(0.0);
+
+        let step = 5.0;
+        let current = volume();
+        let new_vol = if delta_y > 0.0 {
+            (current - step).max(0.0)
+        } else if delta_y < 0.0 {
+            (current + step).min(100.0)
+        } else {
+            current
+        };
+
+        // Solo actualizar si cambió
+        if (new_vol - current).abs() > 0.01 {
+            volume.set(new_vol);
+        }
+    });
+
+    let on_vol_down = use_callback(move |e: Event<MouseData>| {
         e.prevent_default();
         dragging_vol.set(true);
         if let Some(el) = vol_el() {
             let coords = e.data.client_coordinates();
             volume.set(calc_pct(&el, coords.x));
         }
-    };
+    });
 
-    let on_prog_down = move |e: Event<MouseData>| {
+    let on_prog_down = use_callback(move |e: Event<MouseData>| {
         e.prevent_default();
         dragging_prog.set(true);
         if let Some(el) = prog_el() {
             let coords = e.data.client_coordinates();
             progress.set(calc_pct(&el, coords.x));
         }
-    };
+    });
 
-    let vol_icon = move || match volume() {
+    // ─── Icono de volumen memorizado ───
+    let vol_icon = use_memo(move || match volume() {
         v if v == 0.0 => "🔇",
         v if v < 30.0 => "🔈",
         v if v < 70.0 => "🔉",
         _ => "🔊",
-    };
+    });
+
+    // ─── Valores formateados para evitar re-cálculos en render ───
+    let progress_width = use_memo(move || format!("{:.1}", progress()));
+    let progress_left = use_memo(move || format!("{:.1}", progress()));
+    let volume_width = use_memo(move || format!("{:.1}", volume()));
+    let volume_left = use_memo(move || format!("{:.1}", volume()));
+
+    let is_dragging_vol = dragging_vol();
+    let is_dragging_prog = dragging_prog();
 
     rsx! {
         div { class: "player-bar",
+            // Info izquierda
             div { class: "player-info",
                 div { class: "player-cover",
                     img {
@@ -118,7 +148,9 @@ pub fn PlayerBar() -> Element {
                 }
             }
 
+            // Controles centro
             div { class: "player-center",
+                // Barra de progreso
                 div { class: "player-progress-row",
                     span { class: "time", "00:00" }
                     div {
@@ -131,17 +163,18 @@ pub fn PlayerBar() -> Element {
                         onmousedown: on_prog_down,
                         div {
                             class: "slider-fill",
-                            style: "width: {progress:.1}%"
+                            style: "width: {progress_width}%"
                         }
                         div {
                             class: "slider-knob",
-                            class: if dragging_prog() { "dragging" } else { "" },
-                            style: "left: {progress:.1}%"
+                            class: if is_dragging_prog { "dragging" } else { "" },
+                            style: "left: {progress_left}%"
                         }
                     }
                     span { class: "time", "02:55" }
                 }
 
+                // Botones
                 div { class: "player-buttons",
                     button { class: "player-btn",
                         svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
@@ -179,8 +212,9 @@ pub fn PlayerBar() -> Element {
                 }
             }
 
+            // Volumen derecha
             div { class: "player-volume",
-                span { class: "vol-icon", {vol_icon()} }
+                span { class: "vol-icon", {vol_icon} }
 
                 div {
                     class: "slider-host volume-slider",
@@ -190,14 +224,15 @@ pub fn PlayerBar() -> Element {
                         }
                     },
                     onmousedown: on_vol_down,
+                    onwheel: on_vol_scroll,
                     div {
                         class: "slider-fill",
-                        style: "width: {volume:.1}%"
+                        style: "width: {volume_width}%"
                     }
                     div {
                         class: "slider-knob",
-                        class: if dragging_vol() { "dragging" } else { "" },
-                        style: "left: {volume:.1}%"
+                        class: if is_dragging_vol { "dragging" } else { "" },
+                        style: "left: {volume_left}%"
                     }
                 }
 
