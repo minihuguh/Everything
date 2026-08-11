@@ -667,15 +667,13 @@ html, body, #main {
 /* ========== Slider universal ========== */
 .slider-host {
     position: relative;
-    height: 20px;           /* Más alto para debug */
+    height: 16px;
     display: flex;
     align-items: center;
     cursor: pointer;
     flex: 1;
-    background: rgba(255, 0, 0, 0.1); /* DEBUG: fondo rojo transparente */
 }
 
-/* Track */
 .slider-host::before {
     content: "";
     position: absolute;
@@ -684,9 +682,13 @@ html, body, #main {
     height: 4px;
     background: #2d2d44;
     border-radius: 2px;
+    transition: height 0.15s;
 }
 
-/* Fill normal */
+.slider-host:hover::before {
+    height: 6px;
+}
+
 .slider-fill {
     position: absolute;
     left: 0;
@@ -694,41 +696,34 @@ html, body, #main {
     background: #7c3aed;
     border-radius: 2px;
     pointer-events: none;
+    transition: height 0.15s;
 }
 
-/* DEBUG: fill progreso en rojo brillante */
-.debug-fill {
-    background: #ff0040 !important;
-    height: 6px !important;
+.slider-host:hover .slider-fill {
+    height: 6px;
 }
 
-/* DEBUG: fill volumen en verde neón */
-.debug-fill-vol {
-    background: #00ff88 !important;
-    height: 6px !important;
-}
-
-/* Knob */
 .slider-knob {
     position: absolute;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     background: #0f0f1a;
-    border: 3px solid #ffffff;
+    border: 2px solid #7c3aed;
     border-radius: 50%;
     transform: translate(-50%, 0);
     pointer-events: none;
-    opacity: 1;             /* DEBUG: siempre visible */
-    top: 2px;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    opacity: 0;
+    transition: opacity 0.15s, transform 0.1s;
+    top: 1px;
+    box-shadow: 0 0 8px rgba(124, 58, 237, 0.3);
 }
 
+.slider-host:hover .slider-knob,
 .slider-knob.dragging {
-    transform: translate(-50%, 0) scale(1.3);
-    border-color: #ffff00;  /* DEBUG: amarillo al arrastrar */
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
 }
 
-/* Tamaños específicos */
 .progress-slider {
     width: 100%;
 }
@@ -738,19 +733,13 @@ html, body, #main {
     flex: none;
 }
 
-/* ========== Debug UI ========== */
-.vol-debug {
-    font-size: 11px;
-    color: #00ff88;
-    font-family: "Fira Code", monospace;
-    min-width: 40px;
-    text-align: right;
-    background: rgba(0, 255, 136, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
+@media (pointer: coarse) {
+    .slider-knob {
+        opacity: 1;
+    }
 }
 
-/* ========== Resto de tu CSS (sin cambios) ========== */
+/* ========== Layout base ========== */
 .player-bar {
     height: 80px;
     background: #0f0f1a;
@@ -798,10 +787,9 @@ html, body, #main {
 }
 
 .player-artist {
-    font-size: 14px;
+    font-size: 12px;
     color: #808090;
     font-family: Inter, sans-serif;
-    font-weight: 500;
 }
 
 .player-center {
@@ -823,10 +811,10 @@ html, body, #main {
 .time {
     font-size: 11px;
     color: #dfdff5;
-    width: 40px;
+    width: 36px;
     text-align: center;
     font-variant-numeric: tabular-nums;
-    font-family: "Fira Code", monospace;
+    font-family: Verdana, sans-serif;
 }
 
 .player-buttons {
@@ -878,4 +866,5 @@ html, body, #main {
     font-size: 16px;
     width: 22px;
     text-align: center;
+    user-select: none;
 }

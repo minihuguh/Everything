@@ -1,14 +1,14 @@
 use dioxus::prelude::*;
 use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlElement, MouseEvent};
-use gloo_console::log as console_log;
 use dioxus::web::WebEventExt;
 
+//noinspection D
 #[component]
 pub fn PlayerBar() -> Element {
     let mut is_playing = use_signal(|| false);
     let mut progress = use_signal(|| 0.0_f64);
-    let mut volume = use_signal(|| 70.0_f64); // 0-100 para facilitar
+    let mut volume = use_signal(|| 70.0_f64);
 
     let mut dragging_vol = use_signal(|| false);
     let mut dragging_prog = use_signal(|| false);
@@ -19,22 +19,16 @@ pub fn PlayerBar() -> Element {
     fn calc_pct(el: &HtmlElement, client_x: f64) -> f64 {
         let rect = el.get_bounding_client_rect();
         let w = rect.width();
-        let left = rect.left();
-        let pct = if w > 0.0 {
-            ((client_x - left) / w * 100.0).clamp(0.0, 100.0)
+        if w > 0.0 {
+            ((client_x - rect.left()) / w * 100.0).clamp(0.0, 100.0)
         } else {
             0.0
-        };
-        console_log!(format!("calc_pct: client_x={}, left={}, width={}, pct={:.2}", client_x, left, w, pct));
-        pct
+        }
     }
 
-    // Efecto drag global
     use_effect(move || {
         let is_dragging_vol = dragging_vol();
         let is_dragging_prog = dragging_prog();
-
-        console_log!(format!("use_effect triggered: vol={}, prog={}", is_dragging_vol, is_dragging_prog));
 
         if !is_dragging_vol && !is_dragging_prog {
             return;
@@ -55,18 +49,12 @@ pub fn PlayerBar() -> Element {
                 let x = e.client_x() as f64;
                 if dragging_vol() {
                     if let Some(el) = vol_el() {
-                        let new_vol = calc_pct(&el, x);
-                        volume.set(new_vol);
-                        console_log!(format!("DRAG VOL: x={}, new_vol={:.2}", x, new_vol));
-                    } else {
-                        console_log!("DRAG VOL: vol_el is None!");
+                        volume.set(calc_pct(&el, x));
                     }
                 }
                 if dragging_prog() {
                     if let Some(el) = prog_el() {
-                        let new_prog = calc_pct(&el, x);
-                        progress.set(new_prog);
-                        console_log!(format!("DRAG PROG: x={}, new_prog={:.2}", x, new_prog));
+                        progress.set(calc_pct(&el, x));
                     }
                 }
             }
@@ -76,7 +64,6 @@ pub fn PlayerBar() -> Element {
             let mut dragging_vol = dragging_vol;
             let mut dragging_prog = dragging_prog;
             move || {
-                console_log!("MOUSEUP: stopping drag");
                 dragging_vol.set(false);
                 dragging_prog.set(false);
             }
@@ -93,31 +80,22 @@ pub fn PlayerBar() -> Element {
 
     let on_vol_down = move |e: Event<MouseData>| {
         e.prevent_default();
-        console_log!("VOLUME MOUSEDOWN");
         dragging_vol.set(true);
         if let Some(el) = vol_el() {
             let coords = e.data.client_coordinates();
-            let new_vol = calc_pct(&el, coords.x);
-            volume.set(new_vol);
-            console_log!(format!("VOL CLICK: coords.x={}, new_vol={:.2}", coords.x, new_vol));
-        } else {
-            console_log!("VOL MOUSEDOWN: vol_el is None!");
+            volume.set(calc_pct(&el, coords.x));
         }
     };
 
     let on_prog_down = move |e: Event<MouseData>| {
         e.prevent_default();
-        console_log!("PROGRESS MOUSEDOWN");
         dragging_prog.set(true);
         if let Some(el) = prog_el() {
             let coords = e.data.client_coordinates();
-            let new_prog = calc_pct(&el, coords.x);
-            progress.set(new_prog);
-            console_log!(format!("PROG CLICK: coords.x={}, new_prog={:.2}", coords.x, new_prog));
+            progress.set(calc_pct(&el, coords.x));
         }
     };
 
-    // Icono de volumen dinámico
     let vol_icon = move || match volume() {
         v if v == 0.0 => "🔇",
         v if v < 30.0 => "🔈",
@@ -127,7 +105,6 @@ pub fn PlayerBar() -> Element {
 
     rsx! {
         div { class: "player-bar",
-            // Info izquierda
             div { class: "player-info",
                 div { class: "player-cover",
                     img {
@@ -137,34 +114,23 @@ pub fn PlayerBar() -> Element {
                 }
                 div { class: "player-text",
                     div { class: "player-title", "Every breath you take" }
-                    // DEBUG: muestra volumen en lugar del artista
                     div { class: "player-artist", "J V N" }
                 }
             }
 
-            // Controles centro
             div { class: "player-center",
-                // Barra de progreso
                 div { class: "player-progress-row",
                     span { class: "time", "00:00" }
                     div {
                         class: "slider-host progress-slider",
                         onmounted: move |evt: Event<MountedData>| {
                             if let Ok(el) = evt.as_web_event().dyn_into::<HtmlElement>() {
-                                let rect = el.get_bounding_client_rect();
-                                console_log!(format!(
-                                    "PROG MOUNTED: width={}, left={}, top={}",
-                                    rect.width(), rect.left(), rect.top()
-                                ));
                                 prog_el.set(Some(el));
-                            } else {
-                                console_log!("PROG MOUNTED: FAILED!");
                             }
                         },
                         onmousedown: on_prog_down,
-                        // DEBUG: fill rojo para ver cambios
                         div {
-                            class: "slider-fill debug-fill",
+                            class: "slider-fill",
                             style: "width: {progress:.1}%"
                         }
                         div {
@@ -173,10 +139,9 @@ pub fn PlayerBar() -> Element {
                             style: "left: {progress:.1}%"
                         }
                     }
-                    span { class: "time", "{progress:.0}%" } // DEBUG: muestra %
+                    span { class: "time", "02:55" }
                 }
 
-                // Botones
                 div { class: "player-buttons",
                     button { class: "player-btn",
                         svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
@@ -214,7 +179,6 @@ pub fn PlayerBar() -> Element {
                 }
             }
 
-            // Volumen derecha
             div { class: "player-volume",
                 span { class: "vol-icon", {vol_icon()} }
 
@@ -222,20 +186,12 @@ pub fn PlayerBar() -> Element {
                     class: "slider-host volume-slider",
                     onmounted: move |evt: Event<MountedData>| {
                         if let Ok(el) = evt.as_web_event().dyn_into::<HtmlElement>() {
-                            let rect = el.get_bounding_client_rect();
-                            console_log!(format!(
-                                "VOL MOUNTED: width={}, left={}, top={}",
-                                rect.width(), rect.left(), rect.top()
-                            ));
                             vol_el.set(Some(el));
-                        } else {
-                            console_log!("VOL MOUNTED: FAILED!");
                         }
                     },
                     onmousedown: on_vol_down,
-                    // DEBUG: fill verde neón para ver cambios
                     div {
-                        class: "slider-fill debug-fill-vol",
+                        class: "slider-fill",
                         style: "width: {volume:.1}%"
                     }
                     div {
@@ -244,9 +200,6 @@ pub fn PlayerBar() -> Element {
                         style: "left: {volume:.1}%"
                     }
                 }
-
-                // DEBUG: valor numérico
-                span { class: "vol-debug", "{volume:.0}%" }
 
                 button { class: "player-btn",
                     svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "currentColor",
