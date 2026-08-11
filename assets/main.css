@@ -1,0 +1,881 @@
+@font-face {
+    font-family: "Inter";
+    src: url("fonts/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+    font-weight: 400;
+}
+
+@font-face {
+    font-family: "Montserrat";
+    src: url("fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+    font-weight: 100 900;    /* Rango completo de la variable */
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Montserrat";
+    src: url("fonts/Montserrat-Italic-VariableFont_wght.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: italic;
+}
+
+/** {*/
+/*    margin: 0;*/
+/*    padding: 0;*/
+/*    box-sizing: border-box;*/
+/*    user-select: none;*/
+/*}*/
+
+/*html, body, #main {*/
+/*    height: 100%;*/
+/*    width: 100%;*/
+/*    overflow: hidden;*/
+/*}*/
+
+/*.app-layout {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    height: 100vh;*/
+/*    width: 100vw;*/
+/*}*/
+
+/*.app-main {*/
+/*    display: flex;*/
+/*    flex-direction: row;*/
+/*    flex: 1;*/
+/*    min-height: 0;*/
+/*    overflow: hidden;*/
+/*}*/
+
+/*.sidebar {*/
+/*    width: 200px;*/
+/*    flex-shrink: 0;*/
+/*    background-color: #181818;*/
+/*    color: white;*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    height: 100%;*/
+/*}*/
+
+/*.sidebar-header {*/
+/*    padding: 16px;*/
+/*    font-size: 25px;*/
+/*    font-weight: bold;*/
+/*    font-style: italic;*/
+/*    font-family: Symbol, cursive;*/
+/*    border-bottom: 1px solid #334155;*/
+/*    letter-spacing: 4px;*/
+/*    text-align: center;*/
+/*    flex-shrink: 0;*/
+/*}*/
+
+
+/*.sidebar-nav {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    gap: 8px;*/
+/*    padding: 16px;*/
+/*}*/
+
+/*.sidebar-btn {*/
+/*    width: 100%;*/
+/*    text-align: left;*/
+/*    padding: 2px 2px;*/
+/*    border-radius: 6px;*/
+/*    border: none;*/
+/*    background: transparent;*/
+/*    color: white;*/
+/*    font-size: 16px;*/
+/*    cursor: pointer;*/
+/*}*/
+
+/*.sidebar-btn:hover {*/
+/*    background-color: #334155;*/
+/*}*/
+
+/*.sidebar-btn.active {*/
+/*    background-color: #2563eb;*/
+/*}*/
+
+/*.content-area {*/
+/*    flex: 1;*/
+/*    overflow-y: auto;*/
+/*    padding: 24px;*/
+/*    background: #1a1a1a;*/
+/*    color: white;*/
+/*}*/
+
+/*.player-bar {*/
+/*    width: 100%;*/
+/*    height: 120px;*/
+/*    background: #18181b;*/
+/*    color: white;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    padding: 0 24px;*/
+/*    gap: 24px;*/
+/*    border-top: 1px solid #27272a;*/
+/*    flex-shrink: 0;*/
+/*}*/
+
+/*.player-info {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 12px;*/
+/*    width: 250px;*/
+/*    flex-shrink: 0;*/
+/*}*/
+
+/*.player-cover {*/
+/*    width: 48px;*/
+/*    height: 48px;*/
+/*    background: #3f3f46;*/
+/*    border-radius: 4px;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    justify-content: center;*/
+/*    font-size: 24px;*/
+/*}*/
+
+/*.player-text {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    gap: 2px;*/
+/*}*/
+
+/*.player-title {*/
+/*    font-size: 14px;*/
+/*    font-weight: 500;*/
+/*    font-family: "Fira Code", monospace;*/
+/*}*/
+
+/*.player-artist {*/
+/*    font-size: 12px;*/
+/*    color: #a1a1aa;*/
+/*    font-family: "Fira Code", monospace;*/
+
+/*}*/
+
+/*.player-controls {*/
+/*    flex: 1;*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    align-items: center;*/
+/*    justify-content: center;*/
+/*    gap: 8px;*/
+/*    font-family: "Fira Code", monospace;*/
+
+/*}*/
+
+/*.player-buttons {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 16px;*/
+/*}*/
+
+/*.player-btn {*/
+/*    background: none;*/
+/*    border: none;*/
+/*    color: white;*/
+/*    font-size: 18px;*/
+/*    cursor: pointer;*/
+/*    padding: 4px;*/
+/*}*/
+
+/*.player-btn.play {*/
+/*    font-size: 32px;*/
+/*}*/
+
+/*.player-progress {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 8px;*/
+/*    width: 100%;*/
+/*    max-width: 500px;*/
+/*}*/
+
+/*.time {*/
+/*    font-size: 11px;*/
+/*    color: #a1a1aa;*/
+/*    width: 32px;*/
+/*    text-align: center;*/
+/*}*/
+
+/*.progress-bar {*/
+/*    flex: 1;*/
+/*    height: 4px;*/
+/*    background: #3f3f46;*/
+/*    border-radius: 2px;*/
+/*    position: relative;*/
+/*    cursor: pointer;*/
+/*}*/
+
+/*.progress-fill {*/
+/*    height: 100%;*/
+/*    background: white;*/
+/*    border-radius: 2px;*/
+/*}*/
+
+/*.progress-knob {*/
+/*    position: absolute;*/
+/*    top: 50%;*/
+/*    transform: translate(-50%, -50%);*/
+/*    width: 12px;*/
+/*    height: 12px;*/
+/*    background: white;*/
+/*    border-radius: 50%;*/
+/*}*/
+
+/*.player-volume {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 8px;*/
+/*    width: 150px;*/
+/*    flex-shrink: 0;*/
+/*    justify-content: flex-end;*/
+/*}*/
+
+/*.volume-bar {*/
+/*    flex: 1;*/
+/*    height: 4px;*/
+/*    background: #3f3f46;*/
+/*    border-radius: 2px;*/
+/*}*/
+
+/*.volume-fill {*/
+/*    height: 100%;*/
+/*    background: white;*/
+/*    border-radius: 2px;*/
+/*}*/
+
+/*.content-wrapper {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    flex: 1;*/
+/*    overflow: hidden;*/
+/*    position: relative;*/
+/*}*/
+
+/*.content-header {*/
+/*    height: 40px;              !* Más compacto sin título *!*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    justify-content: flex-end;  !* Botones a la derecha *!*/
+/*    padding: 0;                 !* Sin padding, los botones tocan el borde *!*/
+/*    flex-shrink: 0;*/
+/*}*/
+
+/*.window-controls {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 0;*/
+/*    height: 100%;*/
+/*}*/
+
+/*.window-btn {*/
+/*    width: 46px;*/
+/*    height: 100%;*/
+/*    border: none;*/
+/*    border-radius: 0;*/
+/*    background: transparent;*/
+/*    color: #a1a1aa;*/
+/*    cursor: pointer;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    justify-content: center;*/
+/*    transition: all 0.15s;*/
+/*    padding: 0;*/
+/*}*/
+
+/*!* Esquina superior derecha redondeada *!*/
+/*.window-btn:last-child {*/
+/*    border-top-right-radius: 8px;*/
+/*}*/
+
+/*.window-btn:hover {*/
+/*    background: rgba(255, 255, 255, 0.1);*/
+/*    color: white;*/
+/*}*/
+
+/*.window-btn.close:hover {*/
+/*    background: #e81123;*/
+/*    color: white;*/
+/*}*/
+
+/*!* Los SVG heredan el color del botón *!*/
+/*.window-btn svg {*/
+/*    display: block;*/
+/*}*/
+
+/*.content-body {*/
+/*    flex: 1;*/
+/*    overflow-y: auto;*/
+/*    padding: 0 24px 24px 24px;*/
+/*    background: #1a1a1a;*/
+/*    color: white;*/
+/*}*/
+/*!* Ocultar la barra de título nativa de Tauri *!*/
+/*.titlebar,*/
+/*[data-tauri-drag-region],*/
+/*.tauri-titlebar {*/
+/*    display: none !important;*/
+/*}*/
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+}
+
+html, body, #main {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Layout principal */
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background: #0a0a0f;
+}
+
+.app-main {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: #0a0a12;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px 16px;
+    border-right: 1px solid #1a1a2e;
+}
+
+.sidebar-logo {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    padding: 0 12px;
+    letter-spacing: -0.02em;
+}
+
+.sidebar-nav {
+    display: flex;
+    font-family: "Droid Sans Mono", monospace;
+    font-weight: 500;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    /*color: #a0a0b0;*/
+    font-size: 14px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    text-align: left;
+}
+
+.sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.sidebar-item.active {
+    background: #2d3748;
+    color: white;
+}
+
+.sidebar-item svg {
+    flex-shrink: 0;
+}
+
+.sidebar-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: #1a1a2e;
+    margin: 20px 12px;
+}
+
+.sidebar-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #a0a0b0;
+    padding: 0 12px;
+    margin-bottom: 8px;
+    font-family: "Inter", sans-serif;
+}
+
+/* Content area */
+.content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.content-header {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.content-header {
+    -webkit-app-region: drag;
+}
+
+.window-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 100%;
+}
+
+.window-btn {
+    width: 46px;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #808090;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    padding: 0;
+}
+
+.window-btn:last-child {
+    border-top-right-radius: 8px;
+}
+
+.window-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.window-btn.close:hover {
+    background: #e81123;
+}
+
+.window-btn svg {
+    display: block;
+}
+
+.content-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 24px 24px;
+    background: #0a0a0f;
+    color: white;
+}
+
+/* Player bar */
+/*.player-bar {*/
+/*    height: 80px;*/
+/*    background: #0f0f1a;*/
+/*    border-top: 1px solid #1a1a2e;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    padding: 0 16px;*/
+/*    gap: 24px;*/
+/*    flex-shrink: 0;*/
+/*}*/
+
+/*.player-info {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 12px;*/
+/*    width: 240px;*/
+/*    flex-shrink: 0;*/
+/*}*/
+
+/*.player-cover {*/
+/*    width: 48px;*/
+/*    height: 48px;*/
+/*    border-radius: 4px;*/
+/*    overflow: hidden;*/
+/*    background: #2d2d44;*/
+/*}*/
+
+/*.player-cover img {*/
+/*    width: 100%;*/
+/*    height: 100%;*/
+/*    object-fit: cover;*/
+/*}*/
+
+/*.player-text {*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    gap: 4px;*/
+/*}*/
+
+/*.player-title {*/
+/*    font-size: 16px;*/
+/*    color: white;*/
+/*    font-family: Inter, sans-serif;*/
+/*}*/
+
+/*.player-artist {*/
+/*    font-size: 14px;*/
+/*    color: #808090;*/
+/*    font-family: Inter, sans-serif;*/
+/*    font-weight: 500;*/
+/*}*/
+
+/*.player-center {*/
+/*    flex: 1;*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*    align-items: center;*/
+/*    gap: 8px;*/
+/*}*/
+
+/*.player-progress-row {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 12px;*/
+/*    width: 100%;*/
+/*    max-width: 600px;*/
+/*}*/
+
+/*.time {*/
+/*    font-size: 11px;*/
+/*    color: #dfdff5;*/
+/*    width: 36px;*/
+/*    text-align: center;*/
+/*    font-variant-numeric: tabular-nums;*/
+/*    font-family: Verdana, sans-serif;*/
+/*}*/
+
+/*.progress-bar {*/
+/*    flex: 1;*/
+/*    height: 4px;*/
+/*    background: #2d2d44;*/
+/*    border-radius: 2px;*/
+/*    position: relative;*/
+/*    cursor: pointer;*/
+/*}*/
+
+/*.progress-fill {*/
+/*    height: 100%;*/
+/*    background: #7c3aed;*/
+/*    border-radius: 2px;*/
+/*}*/
+
+/*.progress-knob {*/
+/*    position: absolute;*/
+/*    top: 50%;*/
+/*    transform: translate(-50%, -50%);*/
+/*    width: 12px;*/
+/*    height: 12px;*/
+/*    background: white;*/
+/*    border-radius: 50%;*/
+/*    box-shadow: 0 2px 4px rgba(0,0,0,0.3);*/
+/*}*/
+
+/*.player-buttons {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 16px;*/
+/*}*/
+
+/*!* Botones pequeños: más grandes que antes *!*/
+/*.player-btn {*/
+/*    width: 32px;              !* Antes no tenía tamaño, ahora sí *!*/
+/*    height: 32px;*/
+/*    background: none;*/
+/*    border: none;*/
+/*    color: #a0a0b0;*/
+/*    cursor: pointer;*/
+/*    padding: 0;               !* Sin padding, el tamaño es fijo *!*/
+/*    display: flex;          !* Centrar el SVG *!*/
+/*    align-items: center;*/
+/*    justify-content: center;*/
+/*    transition: color 0.15s;*/
+/*}*/
+
+/*.player-btn:hover {*/
+/*    color: white;*/
+/*}*/
+
+/*!* Botón de play: más grande *!*/
+/*.player-btn.play {*/
+/*    width: 40px;              !* Antes 40px *!*/
+/*    height: 40px;             !* Antes 40px *!*/
+/*    border-radius: 50%;*/
+/*    background: #7c3aed;*/
+/*    color: white;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    justify-content: center;*/
+/*}*/
+
+/*.player-volume {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 12px;*/
+/*    width: 240px;*/
+/*    flex-shrink: 0;*/
+/*    justify-content: flex-end;*/
+/*}*/
+
+/*.volume-bar {*/
+/*    width: 100px;*/
+/*    height: 4px;*/
+/*    background: #2d2d44;*/
+/*    border-radius: 2px;*/
+/*}*/
+
+/*.volume-fill {*/
+/*    height: 100%;*/
+/*    background: #7c3aed;*/
+/*    border-radius: 2px;*/
+/*}*/
+
+/* ========== Slider universal ========== */
+.slider-host {
+    position: relative;
+    height: 20px;           /* Más alto para debug */
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    flex: 1;
+    background: rgba(255, 0, 0, 0.1); /* DEBUG: fondo rojo transparente */
+}
+
+/* Track */
+.slider-host::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #2d2d44;
+    border-radius: 2px;
+}
+
+/* Fill normal */
+.slider-fill {
+    position: absolute;
+    left: 0;
+    height: 4px;
+    background: #7c3aed;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+/* DEBUG: fill progreso en rojo brillante */
+.debug-fill {
+    background: #ff0040 !important;
+    height: 6px !important;
+}
+
+/* DEBUG: fill volumen en verde neón */
+.debug-fill-vol {
+    background: #00ff88 !important;
+    height: 6px !important;
+}
+
+/* Knob */
+.slider-knob {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #0f0f1a;
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    transform: translate(-50%, 0);
+    pointer-events: none;
+    opacity: 1;             /* DEBUG: siempre visible */
+    top: 2px;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.slider-knob.dragging {
+    transform: translate(-50%, 0) scale(1.3);
+    border-color: #ffff00;  /* DEBUG: amarillo al arrastrar */
+}
+
+/* Tamaños específicos */
+.progress-slider {
+    width: 100%;
+}
+
+.volume-slider {
+    width: 100px;
+    flex: none;
+}
+
+/* ========== Debug UI ========== */
+.vol-debug {
+    font-size: 11px;
+    color: #00ff88;
+    font-family: "Fira Code", monospace;
+    min-width: 40px;
+    text-align: right;
+    background: rgba(0, 255, 136, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* ========== Resto de tu CSS (sin cambios) ========== */
+.player-bar {
+    height: 80px;
+    background: #0f0f1a;
+    border-top: 1px solid #1a1a2e;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    flex-shrink: 0;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 240px;
+    flex-shrink: 0;
+}
+
+.player-cover {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #2d2d44;
+}
+
+.player-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.player-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.player-title {
+    font-size: 14px;
+    color: white;
+    font-family: Inter, sans-serif;
+    font-weight: 500;
+}
+
+.player-artist {
+    font-size: 14px;
+    color: #808090;
+    font-family: Inter, sans-serif;
+    font-weight: 500;
+}
+
+.player-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 600px;
+}
+
+.time {
+    font-size: 11px;
+    color: #dfdff5;
+    width: 40px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-family: "Fira Code", monospace;
+}
+
+.player-buttons {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.player-btn {
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    color: #a0a0b0;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s;
+}
+
+.player-btn:hover {
+    color: white;
+}
+
+.player-btn.play {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #7c3aed;
+    color: white;
+}
+
+.player-btn.play:hover {
+    background: #8b5cf6;
+}
+
+.player-volume {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 240px;
+    flex-shrink: 0;
+    justify-content: flex-end;
+}
+
+.vol-icon {
+    font-size: 16px;
+    width: 22px;
+    text-align: center;
+}
