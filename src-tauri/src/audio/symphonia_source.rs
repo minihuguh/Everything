@@ -5,35 +5,36 @@ use std::path::Path;
 use std::time::Duration;
 
 use rodio::Source;
-use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::{CodecRegistry, Decoder, DecoderOptions};
+use symphonia::core::audio::sample::Sample;
+use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
+use symphonia::core::codecs::CodecParameters;
+use symphonia::core::codecs::registry::CodecRegistry;
 use symphonia::core::errors::Error as SymphoniaError;
-use symphonia::core::formats::{FormatOptions, FormatReader};
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 use symphonia_adapter_libopus::OpusDecoder;
 
 fn build_codec_registry() -> CodecRegistry {
     let mut registry = CodecRegistry::new();
 
-    // 1. Registrar todos los códecs por defecto de Symphonia (MP3, FLAC, WAV, AAC, etc.)
+    // 1. Registrar todos los códecs por defecto de Symphonia
     symphonia::default::register_enabled_codecs(&mut registry);
 
-    // 2. Registrar el adaptador Libopus para decodificación de audio Opus (.opus / .ogg)
-    registry.register_all::<OpusDecoder>();
-
+    // 2. Registrar el adaptador Libopus para decodificación de audio Opus
+    registry.register_audio_decoder::<OpusDecoder>();
     registry
 }
 
 pub struct SymphoniaSource {
     format: Box<dyn FormatReader>,
-    decoder: Box<dyn Decoder>,
+    decoder: Box<dyn AudioDecoder>,
     track_id: u32,
     channels: u16,
     sample_rate: u32,
     total_duration: Option<Duration>,
-    sample_buffer: Option<SampleBuffer<f32>>,
+    sample_buffer: Option<Vec<f32>>,
     buffer_pos: usize,
 }
 
@@ -49,40 +50,54 @@ impl SymphoniaSource {
             hint.with_extension(ext);
         }
 
-        let probed = symphonia::default::get_probe().format(
+        // Probe::format() renombrado a Probe::probe() y devuelve Box<dyn FormatReader> directamente
+        let format = symphonia::default::get_probe().probe(
             &hint,
             mss,
-            &FormatOptions::default(),
-            &MetadataOptions::default(),
+            FormatOptions::default(),
+            MetadataOptions::default(),
         )?;
 
-        let format = probed.format;
+        // Opción A: obtener la pista de audio por defecto (recomendado en 0.6)
+        // let track = format.default_track(TrackType::Audio)
+        //     .ok_or("No se encontró ninguna pista de audio soportada")?;
 
+        // Opción B: filtrar manualmente como antes
         let track = format
             .tracks()
             .iter()
-            .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
+            .find(|t| matches!(t.codec_params, Some(CodecParameters::Audio(_))))
             .ok_or("No se encontró ninguna pista de audio soportada")?;
 
         let track_id = track.id;
 
-        let sample_rate = track
+        // En 0.6, codec_params es Option<CodecParameters> (ahora un enum por tipo de medio)
+        let audio_params = track
             .codec_params
+            .as_ref()
+            .and_then(|p| p.audio())
+            .ok_or("No se encontraron parámetros de audio válidos")?;
+
+        let sample_rate = audio_params
             .sample_rate
             .ok_or("No se pudo determinar sample rate")?;
 
-        let channels = track
-            .codec_params
+        let channels = audio_params
             .channels
+            .as_ref()
             .map(|c| c.count() as u16)
             .unwrap_or(2);
 
-        let total_duration = track.codec_params.n_frames.map(|n_frames| {
-            Duration::from_secs_f64(n_frames as f64 / sample_rate as f64)
-        });
+        // En 0.6, n_frames se movió de CodecParameters a Track directamente
+        let total_duration = track
+            .num_frames
+            .map(|n_frames| Duration::from_secs_f64(n_frames as f64 / sample_rate as f64));
 
         let registry = build_codec_registry();
-        let decoder = registry.make(&track.codec_params, &DecoderOptions::default())?;
+        let decoder = registry.make_audio_decoder(
+            audio_params,
+            &AudioDecoderOptions::default(),
+        )?;
 
         Ok(Self {
             format,
@@ -98,29 +113,33 @@ impl SymphoniaSource {
 
     fn refuel_buffer(&mut self) -> bool {
         loop {
+            // En 0.6, next_packet() devuelve Result<Option<Packet>>.
+            // Ok(None) indica EOF de forma normal.
             let packet = match self.format.next_packet() {
-                Ok(packet) => packet,
-                Err(SymphoniaError::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                    return false;
-                }
+                Ok(Some(packet)) => packet,
+                Ok(None) => return false,
                 Err(_) => return false,
             };
 
-            if packet.track_id() != self.track_id {
+            // En 0.6, los campos de Packet son públicos; los getters fueron eliminados
+            if packet.track_id != self.track_id {
                 continue;
             }
 
             match self.decoder.decode(&packet) {
                 Ok(audio_buf) => {
-                    let capacity = audio_buf.capacity() as u64;
-                    let spec = *audio_buf.spec();
+                    // SampleBuffer fue eliminado en 0.6.
+                    // Se usa un Vec<f32> y los métodos del trait Audio / GenericAudioBufferRef.
+                    let n_samples = audio_buf.samples_interleaved();
 
-                    if self.sample_buffer.is_none() || self.sample_buffer.as_ref().unwrap().capacity() < capacity as usize {
-                        self.sample_buffer = Some(SampleBuffer::new(capacity, spec));
+                    if let Some(ref mut buf) = self.sample_buffer {
+                        buf.resize(n_samples, f32::MID);
+                    } else {
+                        self.sample_buffer = Some(vec![f32::MID; n_samples]);
                     }
 
-                    if let Some(ref mut sample_buffer) = self.sample_buffer {
-                        sample_buffer.copy_interleaved_ref(audio_buf);
+                    if let Some(ref mut samples) = self.sample_buffer {
+                        audio_buf.copy_to_slice_interleaved(samples);
                         self.buffer_pos = 0;
                     }
                     return true;
@@ -137,7 +156,7 @@ impl Iterator for SymphoniaSource {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(ref sbuf) = self.sample_buffer {
-            if self.buffer_pos >= sbuf.samples().len() {
+            if self.buffer_pos >= sbuf.len() {
                 if !self.refuel_buffer() {
                     return None;
                 }
@@ -148,7 +167,7 @@ impl Iterator for SymphoniaSource {
             }
         }
 
-        let sample = self.sample_buffer.as_ref()?.samples()[self.buffer_pos];
+        let sample = self.sample_buffer.as_ref()?[self.buffer_pos];
         self.buffer_pos += 1;
         Some(sample)
     }
@@ -158,7 +177,7 @@ impl Source for SymphoniaSource {
     fn current_span_len(&self) -> Option<usize> {
         self.sample_buffer
             .as_ref()
-            .map(|sbuf| sbuf.samples().len().saturating_sub(self.buffer_pos))
+            .map(|sbuf| sbuf.len().saturating_sub(self.buffer_pos))
     }
 
     fn channels(&self) -> NonZero<u16> {
