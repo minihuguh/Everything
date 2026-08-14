@@ -1,6 +1,6 @@
+use super::symphonia_source::SymphoniaSource;
 use rodio::DeviceSinkBuilder;
 use std::sync::{Arc, Mutex};
-use super::symphonia_source::SymphoniaSource;
 
 pub struct AudioPlayer {
     device_sink: rodio::MixerDeviceSink,
@@ -11,8 +11,7 @@ pub struct AudioPlayer {
 
 impl AudioPlayer {
     pub fn new() -> Result<Self, String> {
-        let device_sink = DeviceSinkBuilder::open_default_sink()
-            .map_err(|e| e.to_string())?;
+        let device_sink = DeviceSinkBuilder::open_default_sink().map_err(|e| e.to_string())?;
 
         let mixer = device_sink.mixer().clone();
 
@@ -25,8 +24,7 @@ impl AudioPlayer {
     }
 
     pub fn play_file(&self, path: &str) -> Result<(), String> {
-        let source = SymphoniaSource::new(path)
-            .map_err(|e| format!("Error al cargar: {}", e))?;
+        let source = SymphoniaSource::new(path).map_err(|e| format!("Error al cargar: {}", e))?;
 
         let player = rodio::Player::connect_new(&self.mixer);
 
