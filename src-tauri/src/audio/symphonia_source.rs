@@ -7,7 +7,6 @@ use std::time::Duration;
 use rodio::Source;
 use symphonia::core::audio::sample::Sample;
 use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
-use symphonia::core::codecs::CodecParameters;
 use symphonia::core::codecs::registry::CodecRegistry;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
@@ -59,15 +58,15 @@ impl SymphoniaSource {
         )?;
 
         // Opción A: obtener la pista de audio por defecto (recomendado en 0.6)
-        // let track = format.default_track(TrackType::Audio)
-        //     .ok_or("No se encontró ninguna pista de audio soportada")?;
+        let track = format.default_track(TrackType::Audio)
+            .ok_or("No se encontró ninguna pista de audio soportada")?;
 
         // Opción B: filtrar manualmente como antes
-        let track = format
-            .tracks()
-            .iter()
-            .find(|t| matches!(t.codec_params, Some(CodecParameters::Audio(_))))
-            .ok_or("No se encontró ninguna pista de audio soportada")?;
+        // let track = format
+        //     .tracks()
+        //     .iter()
+        //     .find(|t| matches!(t.codec_params, Some(CodecParameters::Audio(_))))
+        //     .ok_or("No se encontró ninguna pista de audio soportada")?;
 
         let track_id = track.id;
 
