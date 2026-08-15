@@ -48,8 +48,19 @@ pub struct SymphoniaSource {
 }
 
 impl SymphoniaSource {
+    fn calculate_duration(track: &symphonia::core::formats::Track, sample_rate: u32) -> Option<Duration> {
+        // ÚNICA fuente confiable en Symphonia 0.6
+        track.num_frames
+            .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64))
+    }
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
         let path = path.as_ref();
+
+        let file_name = path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Desconocido")
+            .to_string();
+
         let file = Box::new(File::open(path)?);
 
         let mss = MediaSourceStream::new(file, Default::default());
@@ -67,7 +78,14 @@ impl SymphoniaSource {
             MetadataOptions::default(),
         )?;
 
-        let metadata = Self::extract_simple_metadata(&mut format);
+        let mut metadata = Self::extract_simple_metadata(&mut format);
+
+        if metadata.title.is_none() {
+            metadata.title = Some(file_name.clone());
+        }
+        if metadata.artist.is_none() {
+            metadata.artist = Some("Desconocido".to_string());
+        }
 
         // Opción A: obtener la pista de audio por defecto (recomendado en 0.6)
         let track = format.default_track(TrackType::Audio)
@@ -101,9 +119,12 @@ impl SymphoniaSource {
             .unwrap_or(2);
 
         // En 0.6, n_frames se movió de CodecParameters a Track directamente
-        let total_duration = track
-            .num_frames
-            .map(|n_frames| Duration::from_secs_f64(n_frames as f64 / sample_rate as f64));
+        let mut total_duration = track.num_frames
+            .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64));
+
+        if total_duration.is_none() {
+            total_duration = Some(Duration::from_secs_f64(0.0));
+        }
 
         let metadata = SimpleMetadata {
             duration: total_duration.or(metadata.duration),
