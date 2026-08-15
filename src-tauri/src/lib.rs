@@ -1,8 +1,10 @@
 // use tauri::Manager;
 mod audio;
-
+use tauri_plugin_log::{Target, TargetKind};
 use audio::player::AudioPlayer;
 use std::sync::Mutex;
+use log::{error, info};
+use serde_json::Value;
 // use audio::symphonia_source::SymphoniaSource;
 use tauri::State;
 use tauri::{
@@ -44,8 +46,21 @@ fn close_window(window: tauri::WebviewWindow) {
 }
 
 #[tauri::command]
-fn play_file(state: State<AppState>, path: String) -> Result<(), String> {
-    state.player.lock().unwrap().play_file(&path)
+fn play_file(state: State<AppState>, path: String) -> Result<Value, String> {
+    let a = state.player.lock().unwrap().play_file(&path);
+    match a {
+        Ok(valor) => {
+            info!("Operación exitosa. Datos recibidos: {:?}", valor);
+            // Al no poner punto y coma aquí, este Ok es lo que la función retorna
+            Ok(valor)
+        }
+        Err(mensaje_error) => {
+            error!("Falló la operación. Motivo: {}", mensaje_error);
+            // Al no poner punto y coma aquí, este Err es lo que la función retorna
+            Err(mensaje_error)
+        }
+    }
+
 }
 
 #[tauri::command]
@@ -143,6 +158,15 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                // Define dónde quieres ver los logs (en la Terminal y/o en un archivo físico)
+                .targets([
+                    Target::new(TargetKind::Stdout), // Muestra logs en la consola/terminal
+                    Target::new(TargetKind::LogDir { file_name: Some("logs".to_string()) }), // Opcional: Guarda logs en archivos .log
+                ])
+                .build(),
+        )
         .manage(AppState {
             player: Mutex::new(player),
         })

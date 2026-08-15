@@ -1,6 +1,7 @@
 use super::symphonia_source::SymphoniaSource;
 use rodio::DeviceSinkBuilder;
 use std::sync::{Arc, Mutex};
+use serde_json::{json, Value};
 
 pub struct AudioPlayer {
     device_sink: rodio::MixerDeviceSink,
@@ -23,9 +24,9 @@ impl AudioPlayer {
         })
     }
 
-    pub fn play_file(&self, path: &str) -> Result<(), String> {
+    pub fn play_file(&self, path: &str) -> Result<Value, String> {
         let source = SymphoniaSource::new(path).map_err(|e| format!("Error al cargar: {}", e))?;
-
+        let metadata = source.metadata().clone();
         let player = rodio::Player::connect_new(&self.mixer);
 
         let vol = *self.volume.lock().unwrap();
@@ -34,7 +35,19 @@ impl AudioPlayer {
 
         *self.current_player.lock().unwrap() = Some(player);
 
-        Ok(())
+        Ok(json!({
+            "success": true,
+            "metadata": {
+                "title": metadata.title,
+                "artist": metadata.artist,
+                "duration": metadata.duration.map(|d| d.as_secs_f64()),
+            }
+        }))
+    }
+
+    pub fn get_time(&self) -> u64 {
+        let x = self.current_player.lock().unwrap().as_mut().unwrap().get_pos();
+        x.as_secs()
     }
 
     pub fn pause(&self) {

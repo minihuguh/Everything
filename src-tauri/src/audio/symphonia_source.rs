@@ -4,6 +4,7 @@ use std::num::{NonZero, NonZeroU16, NonZeroU32};
 use std::path::Path;
 use std::time::Duration;
 
+use serde::Serialize;
 use rodio::Source;
 use symphonia::core::audio::sample::Sample;
 use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
@@ -12,7 +13,8 @@ use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::MetadataOptions;
+use symphonia::core::meta::{MetadataOptions, Tag};
+use symphonia::core::meta::StandardTag;
 use symphonia_adapter_libopus::OpusDecoder;
 
 fn build_codec_registry() -> CodecRegistry {
@@ -26,6 +28,13 @@ fn build_codec_registry() -> CodecRegistry {
     registry
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct SimpleMetadata {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub duration: Option<Duration>,
+}
+
 pub struct SymphoniaSource {
     format: Box<dyn FormatReader>,
     decoder: Box<dyn AudioDecoder>,
@@ -35,6 +44,7 @@ pub struct SymphoniaSource {
     total_duration: Option<Duration>,
     sample_buffer: Option<Vec<f32>>,
     buffer_pos: usize,
+    metadata: SimpleMetadata,
 }
 
 impl SymphoniaSource {
@@ -50,12 +60,14 @@ impl SymphoniaSource {
         }
 
         // Probe::format() renombrado a Probe::probe() y devuelve Box<dyn FormatReader> directamente
-        let format = symphonia::default::get_probe().probe(
+        let mut format = symphonia::default::get_probe().probe(
             &hint,
             mss,
             FormatOptions::default(),
             MetadataOptions::default(),
         )?;
+
+        let metadata = Self::extract_simple_metadata(&mut format);
 
         // Opción A: obtener la pista de audio por defecto (recomendado en 0.6)
         let track = format.default_track(TrackType::Audio)
@@ -69,6 +81,7 @@ impl SymphoniaSource {
         //     .ok_or("No se encontró ninguna pista de audio soportada")?;
 
         let track_id = track.id;
+
 
         // En 0.6, codec_params es Option<CodecParameters> (ahora un enum por tipo de medio)
         let audio_params = track
@@ -92,6 +105,12 @@ impl SymphoniaSource {
             .num_frames
             .map(|n_frames| Duration::from_secs_f64(n_frames as f64 / sample_rate as f64));
 
+        let metadata = SimpleMetadata {
+            duration: total_duration.or(metadata.duration),
+            ..metadata
+        };
+
+
         let registry = build_codec_registry();
         let decoder = registry.make_audio_decoder(
             audio_params,
@@ -107,7 +126,75 @@ impl SymphoniaSource {
             total_duration,
             sample_buffer: None,
             buffer_pos: 0,
+            metadata,
         })
+    }
+
+    //noinspection D
+    fn extract_simple_metadata(format: &mut Box<dyn FormatReader>) -> SimpleMetadata {
+        let mut title = None;
+        let mut artist = None;
+
+        let metadata = format.metadata();
+
+        // Solo procesar la primera revisión disponible
+        if let Some(rev) = metadata.current() {
+            // Media tags
+            for tag in &rev.media.tags {
+                if let Some(std_tag) = &tag.std {
+                    match std_tag {
+                        StandardTag::TrackTitle(v) => title = Some(v.to_string()),
+                        StandardTag::Artist(v) => artist = Some(v.to_string()),
+                        _ => {}
+                    }
+                }
+            }
+
+            // Per-track tags (solo si falta algo)
+            if title.is_none() || artist.is_none() {
+                for per_track in &rev.per_track {
+                    for tag in &per_track.metadata.tags {
+                        if let Some(std_tag) = &tag.std {
+                            match std_tag {
+                                StandardTag::TrackTitle(v) if title.is_none() => {
+                                    title = Some(v.to_string());
+                                }
+                                StandardTag::Artist(v) if artist.is_none() => {
+                                    artist = Some(v.to_string());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SimpleMetadata {
+            title,
+            artist,
+            duration: None,
+        }
+    }
+
+
+    #[inline]
+    fn update_from_tag(tag: &Tag, title: &mut Option<String>, artist: &mut Option<String>) {
+        let Some(std_tag) = &tag.std else { return };
+
+        match std_tag {
+            StandardTag::TrackTitle(v) if title.is_none() => {
+                *title = Some(v.to_string());
+            }
+            StandardTag::Artist(v) if artist.is_none() => {
+                *artist = Some(v.to_string());
+            }
+            _ => {}
+        }
+    }
+
+    pub fn metadata(&self) -> &SimpleMetadata {
+        &self.metadata
     }
 
     fn refuel_buffer(&mut self) -> bool {
