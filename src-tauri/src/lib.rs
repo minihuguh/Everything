@@ -142,7 +142,6 @@ pub fn run() {
 
             Ok(())
         })
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .manage(AppState {
             player: Mutex::new(player),
