@@ -4,8 +4,9 @@ use std::num::{NonZero, NonZeroU16, NonZeroU32};
 use std::path::Path;
 use std::time::Duration;
 
-use serde::Serialize;
+use matroska::Matroska;
 use rodio::Source;
+use serde::Serialize;
 use symphonia::core::audio::sample::Sample;
 use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
 use symphonia::core::codecs::registry::CodecRegistry;
@@ -13,8 +14,8 @@ use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::{MetadataOptions, Tag};
 use symphonia::core::meta::StandardTag;
+use symphonia::core::meta::MetadataOptions;
 use symphonia_adapter_libopus::OpusDecoder;
 
 fn build_codec_registry() -> CodecRegistry {
@@ -48,11 +49,6 @@ pub struct SymphoniaSource {
 }
 
 impl SymphoniaSource {
-    fn calculate_duration(track: &symphonia::core::formats::Track, sample_rate: u32) -> Option<Duration> {
-        // ÚNICA fuente confiable en Symphonia 0.6
-        track.num_frames
-            .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64))
-    }
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
         let path = path.as_ref();
 
@@ -61,8 +57,8 @@ impl SymphoniaSource {
             .unwrap_or("Desconocido")
             .to_string();
 
-        let file = Box::new(File::open(path)?);
-
+        let mut file = Box::new(File::open(path)?);
+        let matroska = Matroska::open(&mut *file)?;
         let mss = MediaSourceStream::new(file, Default::default());
 
         let mut hint = Hint::new();
@@ -118,9 +114,29 @@ impl SymphoniaSource {
             .map(|c| c.count() as u16)
             .unwrap_or(2);
 
-        // En 0.6, n_frames se movió de CodecParameters a Track directamente
-        let mut total_duration = track.num_frames
-            .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64));
+        match matroska.info.duration {
+            Some(duration) => {
+                println!("Duración en segundos: {:.2}s", duration.as_secs_f64());
+                println!("Duración formateada: {:?}", duration);
+            }
+            None => {
+                println!("El archivo no especifica una duración en sus metadatos.");
+            }
+        }
+
+        let is_webm = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map_or(false, |ext| ext.eq_ignore_ascii_case("webm"));
+
+        let mut total_duration: Option<Duration>;
+
+        if is_webm {
+            total_duration = matroska.info.duration;
+        } else {
+            total_duration = track.num_frames
+                .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64));
+        }
 
         if total_duration.is_none() {
             total_duration = Some(Duration::from_secs_f64(0.0));
@@ -199,20 +215,20 @@ impl SymphoniaSource {
     }
 
 
-    #[inline]
-    fn update_from_tag(tag: &Tag, title: &mut Option<String>, artist: &mut Option<String>) {
-        let Some(std_tag) = &tag.std else { return };
-
-        match std_tag {
-            StandardTag::TrackTitle(v) if title.is_none() => {
-                *title = Some(v.to_string());
-            }
-            StandardTag::Artist(v) if artist.is_none() => {
-                *artist = Some(v.to_string());
-            }
-            _ => {}
-        }
-    }
+    // #[inline]
+    // fn update_from_tag(tag: &Tag, title: &mut Option<String>, artist: &mut Option<String>) {
+    //     let Some(std_tag) = &tag.std else { return };
+    //
+    //     match std_tag {
+    //         StandardTag::TrackTitle(v) if title.is_none() => {
+    //             *title = Some(v.to_string());
+    //         }
+    //         StandardTag::Artist(v) if artist.is_none() => {
+    //             *artist = Some(v.to_string());
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
     pub fn metadata(&self) -> &SimpleMetadata {
         &self.metadata
