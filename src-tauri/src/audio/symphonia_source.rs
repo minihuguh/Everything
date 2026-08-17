@@ -3,8 +3,8 @@ use std::fs::File;
 use std::num::{NonZero, NonZeroU16, NonZeroU32};
 use std::path::Path;
 use std::time::Duration;
-
 use matroska::Matroska;
+use rodio::source::SeekError;
 use rodio::Source;
 use serde::Serialize;
 use symphonia::core::audio::sample::Sample;
@@ -13,9 +13,11 @@ use symphonia::core::codecs::registry::CodecRegistry;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
+use symphonia::core::formats::{SeekMode, SeekTo};
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::StandardTag;
 use symphonia::core::meta::MetadataOptions;
+use symphonia::core::meta::StandardTag;
+use symphonia::core::units::Time;
 use symphonia_adapter_libopus::OpusDecoder;
 
 fn build_codec_registry() -> CodecRegistry {
@@ -51,14 +53,18 @@ pub struct SymphoniaSource {
 impl SymphoniaSource {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
         let path = path.as_ref();
-
         let file_name = path.file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("Desconocido")
             .to_string();
 
         let mut file = Box::new(File::open(path)?);
-        let matroska = Matroska::open(&mut *file)?;
+        let mut matroska_opt = None;
+
+        if path.extension().and_then(|s| s.to_str()) == Some("webm") {
+            matroska_opt = Some(Matroska::open(&mut *file)?);
+        }
+
         let mss = MediaSourceStream::new(file, Default::default());
 
         let mut hint = Hint::new();
@@ -114,33 +120,35 @@ impl SymphoniaSource {
             .map(|c| c.count() as u16)
             .unwrap_or(2);
 
-        match matroska.info.duration {
-            Some(duration) => {
-                println!("Duración en segundos: {:.2}s", duration.as_secs_f64());
-                println!("Duración formateada: {:?}", duration);
-            }
-            None => {
-                println!("El archivo no especifica una duración en sus metadatos.");
-            }
-        }
+
 
         let is_webm = path
             .extension()
             .and_then(|e| e.to_str())
             .map_or(false, |ext| ext.eq_ignore_ascii_case("webm"));
 
-        let mut total_duration: Option<Duration>;
-
-        if is_webm {
-            total_duration = matroska.info.duration;
-        } else {
-            total_duration = track.num_frames
-                .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64));
+        if let Some(ref matroska) = matroska_opt {
+            match matroska.info.duration {
+                Some(duration) => {
+                    println!("Duración en segundos: {:.2}s", duration.as_secs_f64());
+                    println!("Duración formateada: {:?}", duration);
+                }
+                None => {
+                    println!("El archivo no especifica una duración en sus metadatos.");
+                }
+            }
         }
 
-        if total_duration.is_none() {
-            total_duration = Some(Duration::from_secs_f64(0.0));
-        }
+        let mkv_duration = matroska_opt.and_then(|m| if is_webm { m.info.duration } else { None });
+
+        let track_duration = track.num_frames
+            .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64));
+
+        
+        let total_duration: Option<Duration> = mkv_duration
+            .or(track_duration)
+            .or(Some(Duration::from_secs_f64(0.0)));
+
 
         let metadata = SimpleMetadata {
             duration: total_duration.or(metadata.duration),
@@ -313,5 +321,33 @@ impl Source for SymphoniaSource {
 
     fn total_duration(&self) -> Option<Duration> {
         self.total_duration
+    }
+
+    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
+        let time = Time::try_new(pos.as_secs() as i64, pos.subsec_nanos()).ok_or_else(|| {
+            SeekError::NotSupported {
+                underlying_source: std::any::type_name::<Self>(),
+            }
+        })?;
+
+        let seek_res = self.format.seek(
+            SeekMode::Accurate,
+            SeekTo::Time {
+                time,
+                track_id: Some(self.track_id),
+            },
+        );
+
+        match seek_res {
+            Ok(_) => {
+                self.decoder.reset();
+                self.sample_buffer = None;
+                self.buffer_pos = 0;
+                Ok(())
+            }
+            Err(_) => Err(SeekError::NotSupported {
+                underlying_source: std::any::type_name::<Self>(),
+            }),
+        }
     }
 }
