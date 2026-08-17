@@ -2,8 +2,8 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn Search() -> Element {
-    let mut query = use_signal(|| String::new());
-    let mut active_filter = use_signal(|| "todo");
+    let mut query = use_signal(String::new);
+    let active_filter = use_signal(|| "todo");
 
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/search.css") }
@@ -22,7 +22,7 @@ pub fn Search() -> Element {
                     class: "search-input",
                     placeholder: "¿Qué quieres escuchar?",
                     value: "{query()}",
-                    oninput: move |e| query.set(e.value().to_string())
+                    oninput: move |e| query.set(e.value().clone())
                 }
                 if !query().is_empty() {
                     button {

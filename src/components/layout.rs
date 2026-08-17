@@ -1,11 +1,15 @@
 use dioxus::prelude::*;
 use crate::components::{sidebar::Sidebar, player_bar::PlayerBar, content_header::ContentHeader};
-use crate::state::use_app_state;
+use crate::state::{use_player_state, provide_player_state};
 use crate::views::{home::Home, search::Search, lyrics::Lyrics, playlist::Playlist};
 
 #[component]
 pub fn Layout() -> Element {
-    let current_view = use_app_state();
+    // Proveer el estado global una sola vez en el layout raíz
+    provide_player_state();
+
+    let player = use_player_state();
+    let current_view = use_memo(move || player().current_view);
 
     rsx! {
         div { class: "app-layout",

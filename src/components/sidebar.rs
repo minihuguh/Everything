@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::state::use_app_state;
+use crate::state::{set_current_view, use_current_view};
 
 fn home_icon() -> Element {
     rsx! {
@@ -82,9 +82,12 @@ fn local_icon() -> Element {
 
 #[component]
 pub fn Sidebar() -> Element {
-    let mut current_view = use_app_state();
+    let current_view = use_current_view();
+
 
     rsx! {
+        document::Link { rel: "stylesheet", href: asset!("/assets/sidebar.css") }
+
         aside { class: "sidebar",
             div { class: "sidebar-logo", "Everything" }
 
@@ -109,13 +112,13 @@ pub fn Sidebar() -> Element {
 }
 
 #[component]
-fn SidebarItem(current_view: Signal<&'static str>, view: &'static str, label: &'static str, icon: Element) -> Element {
+fn SidebarItem(current_view: Memo<&'static str>, view: &'static str, label: &'static str, icon: Element) -> Element {
     let is_active = current_view() == view;
 
     rsx! {
         button {
             class: if is_active { "sidebar-item active" } else { "sidebar-item" },
-            onclick: move |_| current_view.set(view),
+            onclick: move |_| set_current_view(view),
             {icon}
             span { class: "sidebar-label", "{label}" }
         }
