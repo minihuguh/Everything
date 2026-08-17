@@ -3,6 +3,7 @@ mod audio;
 use tauri_plugin_log::{Target, TargetKind};
 use audio::player::AudioPlayer;
 use std::sync::Mutex;
+use std::time::Duration;
 use log::{error, info};
 use serde_json::Value;
 // use audio::symphonia_source::SymphoniaSource;
@@ -60,7 +61,6 @@ fn play_file(state: State<AppState>, path: String) -> Result<Value, String> {
             Err(mensaje_error)
         }
     }
-
 }
 
 #[tauri::command]
@@ -82,6 +82,27 @@ fn stop(state: State<AppState>) {
 fn set_volume(state: State<AppState>, volume: f32) {
     state.player.lock().unwrap().set_volume(volume);
 }
+
+#[tauri::command]
+fn get_time(state: State<AppState>) -> u64 {
+    let valor = state.player.lock().unwrap().get_time();
+    info!("Operación exitosa. Datos recibidos: {:?}", valor.to_string());
+    valor
+}
+
+#[tauri::command]
+fn set_time(state: State<AppState>, time_in_seconds: u64) -> Result<(), String> {
+    // 2. Convertimos el u64 a Duration
+    let duration = Duration::from_secs(time_in_seconds);
+    // let temp_duration = Duration::from_secs(30);
+    // 3. Agregamos el punto y coma final para separar las expresiones
+    let temp = state.player.lock().unwrap().set_time(duration);
+    info!("Datos recibidos desde set_time: {:?}", temp);
+
+    // 4. Devolvemos la señal de éxito
+    Ok(())
+}
+
 
 #[tauri::command]
 fn is_playing(state: State<AppState>) -> bool {
@@ -157,6 +178,14 @@ pub fn run() {
 
             Ok(())
         })
+        .setup(|app| {
+            #[cfg(debug_assertions)]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                window.open_devtools();
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -179,7 +208,9 @@ pub fn run() {
             resume,
             stop,
             set_volume,
-            is_playing
+            is_playing,
+            get_time,
+            set_time
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

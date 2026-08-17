@@ -1,6 +1,8 @@
 use super::symphonia_source::SymphoniaSource;
 use rodio::DeviceSinkBuilder;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use rodio::source::SeekError;
 use serde_json::{json, Value};
 
 pub struct AudioPlayer {
@@ -48,6 +50,14 @@ impl AudioPlayer {
     pub fn get_time(&self) -> u64 {
         let x = self.current_player.lock().unwrap().as_mut().unwrap().get_pos();
         x.as_secs()
+    }
+
+    pub fn set_time(&self, time_pos: Duration) -> Result<(), SeekError> {
+        self.current_player
+            .lock()
+            .unwrap().as_mut()
+            .unwrap()
+            .try_seek(time_pos)
     }
 
     pub fn pause(&self) {
