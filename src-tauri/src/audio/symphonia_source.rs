@@ -1,12 +1,12 @@
+use matroska::Matroska;
+use rodio::source::SeekError;
+use rodio::Source;
+use serde::Serialize;
 use std::error::Error;
 use std::fs::File;
 use std::num::{NonZero, NonZeroU16, NonZeroU32};
 use std::path::Path;
 use std::time::Duration;
-use matroska::Matroska;
-use rodio::source::SeekError;
-use rodio::Source;
-use serde::Serialize;
 use symphonia::core::audio::sample::Sample;
 use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
 use symphonia::core::codecs::registry::CodecRegistry;
@@ -23,10 +23,10 @@ use symphonia_adapter_libopus::OpusDecoder;
 fn build_codec_registry() -> CodecRegistry {
     let mut registry = CodecRegistry::new();
 
-    // 1. Registrar todos los códecs por defecto de Symphonia
+    // Registrar todos los códecs por defecto de Symphonia
     symphonia::default::register_enabled_codecs(&mut registry);
 
-    // 2. Registrar el adaptador Libopus para decodificación de audio Opus
+    // Registrar el adaptador Libopus para decodificación de audio Opus
     registry.register_audio_decoder::<OpusDecoder>();
     registry
 }
@@ -36,6 +36,7 @@ pub struct SimpleMetadata {
     pub title: Option<String>,
     pub artist: Option<String>,
     pub duration: Option<Duration>,
+    pub image: Option<Vec<u8>>,
 }
 
 pub struct SymphoniaSource {
@@ -53,7 +54,8 @@ pub struct SymphoniaSource {
 impl SymphoniaSource {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
         let path = path.as_ref();
-        let file_name = path.file_stem()
+        let file_name = path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("Desconocido")
             .to_string();
@@ -72,7 +74,6 @@ impl SymphoniaSource {
             hint.with_extension(ext);
         }
 
-        // Probe::format() renombrado a Probe::probe() y devuelve Box<dyn FormatReader> directamente
         let mut format = symphonia::default::get_probe().probe(
             &hint,
             mss,
@@ -90,7 +91,8 @@ impl SymphoniaSource {
         }
 
         // Opción A: obtener la pista de audio por defecto (recomendado en 0.6)
-        let track = format.default_track(TrackType::Audio)
+        let track = format
+            .default_track(TrackType::Audio)
             .ok_or("No se encontró ninguna pista de audio soportada")?;
 
         // Opción B: filtrar manualmente como antes
@@ -102,8 +104,6 @@ impl SymphoniaSource {
 
         let track_id = track.id;
 
-
-        // En 0.6, codec_params es Option<CodecParameters> (ahora un enum por tipo de medio)
         let audio_params = track
             .codec_params
             .as_ref()
@@ -119,8 +119,6 @@ impl SymphoniaSource {
             .as_ref()
             .map(|c| c.count() as u16)
             .unwrap_or(2);
-
-
 
         let is_webm = path
             .extension()
@@ -141,26 +139,21 @@ impl SymphoniaSource {
 
         let mkv_duration = matroska_opt.and_then(|m| if is_webm { m.info.duration } else { None });
 
-        let track_duration = track.num_frames
+        let track_duration = track
+            .num_frames
             .map(|n| Duration::from_secs_f64(n as f64 / sample_rate as f64));
 
-        
         let total_duration: Option<Duration> = mkv_duration
             .or(track_duration)
             .or(Some(Duration::from_secs_f64(0.0)));
-
 
         let metadata = SimpleMetadata {
             duration: total_duration.or(metadata.duration),
             ..metadata
         };
 
-
         let registry = build_codec_registry();
-        let decoder = registry.make_audio_decoder(
-            audio_params,
-            &AudioDecoderOptions::default(),
-        )?;
+        let decoder = registry.make_audio_decoder(audio_params, &AudioDecoderOptions::default())?;
 
         Ok(Self {
             format,
@@ -179,6 +172,7 @@ impl SymphoniaSource {
     fn extract_simple_metadata(format: &mut Box<dyn FormatReader>) -> SimpleMetadata {
         let mut title = None;
         let mut artist = None;
+        let mut image = None;
 
         let metadata = format.metadata();
 
@@ -192,11 +186,14 @@ impl SymphoniaSource {
                         StandardTag::Artist(v) => artist = Some(v.to_string()),
                         _ => {}
                     }
+                    if let Some(visual) = &rev.media.visuals.first() {
+                        image = Option::from(visual.data.to_vec());
+                    }
                 }
             }
 
             // Per-track tags (solo si falta algo)
-            if title.is_none() || artist.is_none() {
+            if title.is_none() || artist.is_none()  {
                 for per_track in &rev.per_track {
                     for tag in &per_track.metadata.tags {
                         if let Some(std_tag) = &tag.std {
@@ -209,19 +206,25 @@ impl SymphoniaSource {
                                 }
                                 _ => {}
                             }
+                            if let Some(visual) = &rev.media.visuals.first() {
+                                image = Option::from(visual.data.to_vec());
+                            }
                         }
                     }
                 }
             }
+
+
+
         }
 
         SimpleMetadata {
             title,
             artist,
             duration: None,
+            image
         }
     }
-
 
     // #[inline]
     // fn update_from_tag(tag: &Tag, title: &mut Option<String>, artist: &mut Option<String>) {
@@ -244,23 +247,18 @@ impl SymphoniaSource {
 
     fn refuel_buffer(&mut self) -> bool {
         loop {
-            // En 0.6, next_packet() devuelve Result<Option<Packet>>.
-            // Ok(None) indica EOF de forma normal.
             let packet = match self.format.next_packet() {
                 Ok(Some(packet)) => packet,
                 Ok(None) => return false,
                 Err(_) => return false,
             };
 
-            // En 0.6, los campos de Packet son públicos; los getters fueron eliminados
             if packet.track_id != self.track_id {
                 continue;
             }
 
             match self.decoder.decode(&packet) {
                 Ok(audio_buf) => {
-                    // SampleBuffer fue eliminado en 0.6.
-                    // Se usa un Vec<f32> y los métodos del trait Audio / GenericAudioBufferRef.
                     let n_samples = audio_buf.samples_interleaved();
 
                     if let Some(ref mut buf) = self.sample_buffer {

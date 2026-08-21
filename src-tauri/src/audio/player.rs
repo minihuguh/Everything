@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use rodio::source::SeekError;
 use serde_json::{json, Value};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 pub struct AudioPlayer {
     device_sink: rodio::MixerDeviceSink,
@@ -36,6 +37,10 @@ impl AudioPlayer {
         player.append(source);
 
         *self.current_player.lock().unwrap() = Some(player);
+        let mut tmp_img = None;
+        if let Some(bytes) = &metadata.image {
+            tmp_img = Some(STANDARD.encode(bytes));
+        }
 
         Ok(json!({
             "success": true,
@@ -43,6 +48,7 @@ impl AudioPlayer {
                 "title": metadata.title,
                 "artist": metadata.artist,
                 "duration": metadata.duration.map(|d| d.as_secs_f64()),
+                "image": tmp_img,
             }
         }))
     }
