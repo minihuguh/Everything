@@ -6,6 +6,7 @@ pub struct TrackMetadata {
     pub artist: String,
     pub duration_secs: f64,
     pub path: String,
+    pub image: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -14,7 +15,7 @@ pub struct PlayerState {
     pub is_playing: bool,
     pub current_time: f64,      // segundos actuales
     pub duration: f64,          // duración total en segundos
-    pub volume: f64,            // 0.0 - 1.0
+    pub volume: f64,            // 0.0 - 100.0
     pub metadata: Option<TrackMetadata>,
     pub is_loading: bool,
     pub is_dragging_prog: bool
