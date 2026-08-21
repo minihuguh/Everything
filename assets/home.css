@@ -1,0 +1,249 @@
+/* ============================================ *//* Home Screen Styles *//* ============================================ *//* ---------- Contenedor principal ---------- */
+.home-container {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    padding-top: 8px;
+    padding-bottom: 32px;
+}
+
+/* ---------- Saludo contextual ---------- */
+.greeting-header {
+    font-family: 'Inter', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+
+.greeting-sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #808090;
+    font-weight: 400;
+}
+
+/* ---------- Grid de acceso rápido ---------- */
+.quick-access-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    width: 100%;
+}
+
+.quick-access-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    background: #12121c;
+    border: 1px solid #1a1a2e;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    min-height: 56px;
+}
+
+.quick-access-card:hover {
+    background: #1a1a2e;
+    border-color: #2d2d44;
+    transform: translateY(-1px);
+}
+
+.quick-access-card:active {
+    transform: translateY(0);
+}
+
+.quick-access-cover {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #2d2d44;
+}
+
+.quick-access-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.quick-access-icon {
+    font-size: 18px;
+    color: #7c3aed;
+}
+
+.quick-access-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Secciones de carrusel ---------- */
+.section-carousel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.carousel-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-right: 4px;
+}
+
+.carousel-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}
+
+.carousel-see-all {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #808090;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.carousel-see-all:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ---------- Carrusel horizontal ---------- */
+.carousel-row {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    scroll-behavior: smooth; /* Scrollbar oculta pero funcional */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.carousel-row::-webkit-scrollbar {
+    display: none;
+}
+
+.carousel-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 160px;
+    max-width: 160px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.carousel-item:hover {
+    transform: translateY(-4px);
+}
+
+.carousel-item:hover .carousel-cover {
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
+}
+
+.carousel-cover {
+    width: 160px;
+    height: 160px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #2d2d44;
+    position: relative;
+    transition: box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+
+.carousel-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.carousel-item:hover .carousel-cover img {
+    transform: scale(1.04);
+}
+
+/* Placeholder con gradiente cuando no hay imagen */
+.cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: #7c3aed;
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+}
+
+.carousel-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.carousel-item-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.carousel-item-subtitle {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: #808090;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+    .quick-access-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .carousel-item {
+        min-width: 140px;
+        max-width: 140px;
+    }
+
+    .carousel-cover {
+        width: 140px;
+        height: 140px;
+    }
+
+    .greeting-header {
+        font-size: 24px;
+    }
+}
