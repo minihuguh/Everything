@@ -5,6 +5,7 @@ use web_sys::{window, HtmlElement};
 use std::cell::RefCell;
 use std::rc::Rc;
 use dioxus::web::WebEventExt;
+use serde_json::Value::Null;
 use crate::state::use_player_state;
 
 fn log(msg: &str) {
@@ -400,19 +401,29 @@ pub fn PlayerBar() -> Element {
             .as_ref().map_or_else(|| "—".to_string(), |m| m.artist.clone())
     });
 
+    let image = use_memo(move || {
+       player()
+           .metadata
+           .as_ref().map_or_else(|| "Null".to_string(), |m| m.image.clone())
+    });
+
     let is_playing = player().is_playing;
     let is_dragging_vol = dragging_vol();
     let is_dragging_prog = dragging_prog();
+
+
 
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/player_bar.css") }
 
         div { class: "player-bar",
             div { class: "player-info",
-                div { class: "player-cover",
-                    img {
-                        src: asset!("assets/cover.png"),
-                        alt: "cover"
+                div { class: if image() != "Null" { "player-cover" } else { "player-cover empty" },
+                    if image() != "Null" {
+                        img {
+                            src: "data:image/jpeg;base64,{image}",
+                            alt: "cover"
+                        }
                     }
                 }
                 div { class: "player-text",
