@@ -1,4 +1,5 @@
 use super::symphonia_source::SymphoniaSource;
+use crate::state::TrackMetadata;
 use rodio::DeviceSinkBuilder;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -16,9 +17,7 @@ pub struct AudioPlayer {
 impl AudioPlayer {
     pub fn new() -> Result<Self, String> {
         let device_sink = DeviceSinkBuilder::open_default_sink().map_err(|e| e.to_string())?;
-
         let mixer = device_sink.mixer().clone();
-
         Ok(AudioPlayer {
             device_sink,
             mixer,
@@ -27,43 +26,60 @@ impl AudioPlayer {
         })
     }
 
-    pub fn play_file(&self, path: &str) -> Result<Value, String> {
+    pub fn extract_metadata(&self, path: &str) -> Result<TrackMetadata, String> {
         let source = SymphoniaSource::new(path).map_err(|e| format!("Error al cargar: {}", e))?;
-        let metadata = source.metadata().clone();
-        let player = rodio::Player::connect_new(&self.mixer);
-
-        let vol = *self.volume.lock().unwrap();
-        player.set_volume(vol);
-        player.append(source);
-
-        *self.current_player.lock().unwrap() = Some(player);
-        let mut tmp_img = None;
-        if let Some(bytes) = &metadata.image {
-            tmp_img = Some(STANDARD.encode(bytes));
+        let meta = source.metadata();
+        let mut image = String::new();
+        if let Some(bytes) = &meta.image {
+            image = STANDARD.encode(bytes);
         }
+        Ok(TrackMetadata {
+            title: meta.title.clone().unwrap_or_default(),
+            artist: meta.artist.clone().unwrap_or_default(),
+            duration_secs: meta.duration.map(|d| d.as_secs_f64()).unwrap_or(0.0),
+            path: path.to_string(),
+            image,
+        })
+    }
 
+    pub fn play_file(&self, path: &str) -> Result<Value, String> {
+        let track = self.extract_metadata(path)?;
+        self.play_track(&track)?;
         Ok(json!({
             "success": true,
             "metadata": {
-                "title": metadata.title,
-                "artist": metadata.artist,
-                "duration": metadata.duration.map(|d| d.as_secs_f64()),
-                "image": tmp_img,
+                "title": track.title,
+                "artist": track.artist,
+                "duration": track.duration_secs,
+                "image": track.image,
             }
         }))
     }
 
+    pub fn play_track(&self, track: &TrackMetadata) -> Result<(), String> {
+        let source = SymphoniaSource::new(&track.path).map_err(|e| format!("Error al cargar: {}", e))?;
+        let player = rodio::Player::connect_new(&self.mixer);
+        let vol = *self.volume.lock().unwrap();
+        player.set_volume(vol);
+        player.append(source);
+        *self.current_player.lock().unwrap() = Some(player);
+        Ok(())
+    }
+
     pub fn get_time(&self) -> u64 {
-        let x = self.current_player.lock().unwrap().as_mut().unwrap().get_pos();
-        x.as_secs()
+        let guard = self.current_player.lock().unwrap();
+        match guard.as_ref() {
+            Some(player) => player.get_pos().as_secs(),
+            None => 0,
+        }
     }
 
     pub fn set_time(&self, time_pos: Duration) -> Result<(), SeekError> {
-        self.current_player
-            .lock()
-            .unwrap().as_mut()
-            .unwrap()
-            .try_seek(time_pos)
+        let mut guard = self.current_player.lock().unwrap();
+        match guard.as_mut() {
+            Some(player) => player.try_seek(time_pos),
+            None => Ok(()),
+        }
     }
 
     pub fn pause(&self) {
