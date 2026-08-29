@@ -230,3 +230,8 @@
     opacity: 1;
     transform: scale(1.1);
 }
+
+.player-btn.disabled { color: #3f3f46; cursor: not-allowed; }
+.player-btn.disabled:hover { color: #3f3f46; }
+.player-btn.active { color: #7c3aed; }
+.player-btn.active:hover { color: #8b5cf6; }

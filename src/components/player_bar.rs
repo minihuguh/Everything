@@ -5,14 +5,12 @@ use web_sys::{window, HtmlElement};
 use std::cell::RefCell;
 use std::rc::Rc;
 use dioxus::web::WebEventExt;
-use serde_json::Value::Null;
-use crate::state::use_player_state;
+use crate::state::{use_player_state, RepeatMode};
 
 fn log(msg: &str) {
     web_sys::console::log_1(&format!("[PLAYER_BAR] {msg}").into());
 }
 
-// ─── Acceso seguro a Tauri via web_sys ───
 fn get_tauri_invoke() -> Option<js_sys::Function> {
     let win = window()?;
     let tauri = js_sys::Reflect::get(&win, &"__TAURI__".into()).ok()?;
@@ -61,13 +59,12 @@ async fn tauri_set_time(secs: f64) {
 async fn tauri_set_volume(value: f64) {
     let Ok(args) = serde_wasm_bindgen::to_value(
         &serde_json::json!({"volume": value})
-        ) else { return };
+    ) else { return };
     if let Err(e) = tauri_invoke("set_volume", args).await {
         web_sys::console::error_1(&format!("set_volume error: {e:?}").into());
     }
 }
 
-// ─── Debounce ───
 #[derive(Clone)]
 struct DebouncedSender {
     inner: Rc<RefCell<DebouncedInner>>,
@@ -121,7 +118,7 @@ impl DebouncedSender {
 }
 
 #[component]
-pub fn PlayerBar() -> Element {
+pub fn PlayerBar(show_queue: Signal<bool>) -> Element {
     let mut player = use_player_state();
 
     let is_playing_memo = use_memo(move || player().is_playing);
@@ -132,22 +129,17 @@ pub fn PlayerBar() -> Element {
     let mut vol_el: Signal<Option<HtmlElement>> = use_signal(|| None);
     let mut prog_el: Signal<Option<HtmlElement>> = use_signal(|| None);
 
-    // ─── Rc<RefCell> para interval_id — clonable, no causa re-renders ───
     let interval_id: Rc<RefCell<Option<i32>>> = use_hook(|| Rc::new(RefCell::new(None)));
 
-    // ─── Memo: ¿debe haber polling? ───
     let should_poll = use_memo(move || {
         is_playing_memo() && !dragging_prog()
     });
 
-    // ─── Efecto: crear/limpiar intervalo según should_poll ───
-    // Clonamos interval_id para moverlo al closure
     let interval_id_for_effect = interval_id.clone();
     use_effect(move || {
         let should = should_poll();
         log(&format!("Efecto — should_poll={should}"));
 
-        // Siempre limpiar intervalo anterior primero
         {
             let mut guard = interval_id_for_effect.borrow_mut();
             if let Some(id) = guard.take() {
@@ -171,8 +163,8 @@ pub fn PlayerBar() -> Element {
                     player.with_mut(|p| {
                         p.current_time = time;
                         if p.duration > 0.0 && time >= p.duration - 1.0 {
-                            p.is_playing = false;
-                            log(&format!("Canción finalizada en {}/{}s — polling detenido", time, p.duration));
+                            p.advance();
+                            log(&format!("Cancion finalizada — avanzando a siguiente"));
                         }
                     });
                 }
@@ -187,13 +179,11 @@ pub fn PlayerBar() -> Element {
             )
             .unwrap();
 
-        // Guardar el nuevo ID
         *interval_id_for_effect.borrow_mut() = Some(id);
         log(&format!("Intervalo creado: {id}"));
         closure.forget();
     });
 
-    // ─── Efecto: sincronizar volumen inicial ───
     use_effect(move || {
         let vol = player().volume / 100.0;
         wasm_bindgen_futures::spawn_local(async move {
@@ -201,7 +191,6 @@ pub fn PlayerBar() -> Element {
         });
     });
 
-    // ─── Debounce de volumen ───
     let send_vol = use_hook(|| {
         DebouncedSender::new(move |value: f64| {
             wasm_bindgen_futures::spawn_local(async move {
@@ -220,7 +209,6 @@ pub fn PlayerBar() -> Element {
         }
     }
 
-    // ─── Efecto para drag global ───
     use_effect(move || {
         let is_dragging = dragging_vol() || dragging_prog();
         if !is_dragging {
@@ -240,17 +228,17 @@ pub fn PlayerBar() -> Element {
             let x = f64::from(e.client_x());
             if dragging_vol()
                 && let Some(el) = vol_el() {
-                    let pct = calc_pct(&el, x);
-                    player.with_mut(|p| p.volume = pct * 100.0);
-                }
+                let pct = calc_pct(&el, x);
+                player.with_mut(|p| p.volume = pct * 100.0);
+            }
             if dragging_prog()
                 && let Some(el) = prog_el() {
-                    let pct = calc_pct(&el, x);
-                    let duration = player().duration;
-                    if duration > 0.0 {
-                        player.with_mut(|p| p.current_time = pct * duration);
-                    }
+                let pct = calc_pct(&el, x);
+                let duration = player().duration;
+                if duration > 0.0 {
+                    player.with_mut(|p| p.current_time = pct * duration);
                 }
+            }
         });
 
         let on_up = Closure::<dyn FnMut()>::new(move || {
@@ -276,14 +264,12 @@ pub fn PlayerBar() -> Element {
         on_up.forget();
     });
 
-    // ─── Efecto debounce volumen ───
     use_effect(move || {
         if !dragging_vol() {
             send_vol.send(volume_memo());
         }
     });
 
-    // ─── Callbacks ───
     let on_vol_scroll = use_callback(move |e: Event<WheelData>| {
         e.prevent_default();
         let delta_y = e.as_web_event()
@@ -334,10 +320,6 @@ pub fn PlayerBar() -> Element {
 
     let on_prog_scroll = use_callback(move |e: Event<WheelData>| {
         e.prevent_default();
-        // let delta_y = e.as_web_event()
-        //     .dyn_ref::<web_sys::WheelEvent>()
-        //     .map(|we| we.delta_y())
-        //     .unwrap_or(0.0);
         let delta_y = e.as_web_event()
             .dyn_ref::<web_sys::WheelEvent>()
             .map_or(0.0, web_sys::WheelEvent::delta_y);
@@ -345,27 +327,25 @@ pub fn PlayerBar() -> Element {
         let duration = player().duration;
         if duration <= 0.0 { return; }
 
-        let step_secs = 5.0; // ← Cambia este valor para ajustar el salto
+        let step_secs = 5.0;
         let current = player().current_time;
 
         let new_time = if delta_y > 0.0 {
-            (current - step_secs).max(0.0)      // retroceder
+            (current - step_secs).max(0.0)
         } else if delta_y < 0.0 {
-            (current + step_secs).min(duration) // avanzar
+            (current + step_secs).min(duration)
         } else {
             current
         };
 
         if (new_time - current).abs() > 0.01 {
             player.with_mut(|p| p.current_time = new_time);
-            // Enviar a Tauri inmediatamente (responsive)
             wasm_bindgen_futures::spawn_local(async move {
                 tauri_set_time(new_time).await;
             });
         }
     });
 
-    // ─── Play/Pause toggle ───
     let on_toggle_play = move |_| {
         let is_playing_now = player().is_playing;
         let mut player = player;
@@ -376,13 +356,43 @@ pub fn PlayerBar() -> Element {
         }
     };
 
-    // ─── Valores computados ───
-    let vol_icon = use_memo(move || match player().volume {
-        0.0 => "🔇",
-        v if v < 30.0 => "🔈",
-        v if v < 70.0 => "🔉",
-        _ => "🔊",
-    });
+    let on_prev = move |_| {
+        let mut player = player;
+        async move {
+            player.with_mut(|p| p.go_back());
+            if let Some(track) = player().current_track() {
+                let path = track.path.clone();
+                let args = match serde_wasm_bindgen::to_value(&serde_json::json!({"path": path})) {
+                    Ok(v) => v,
+                    Err(_) => return,
+                };
+                let _ = tauri_invoke("play_file", args).await;
+            }
+        }
+    };
+
+    let on_next = move |_| {
+        let mut player = player;
+        async move {
+            player.with_mut(|p| p.advance());
+            if let Some(track) = player().current_track() {
+                let path = track.path.clone();
+                let args = match serde_wasm_bindgen::to_value(&serde_json::json!({"path": path})) {
+                    Ok(v) => v,
+                    Err(_) => return,
+                };
+                let _ = tauri_invoke("play_file", args).await;
+            }
+        }
+    };
+
+    let on_repeat = move |_| {
+        player.with_mut(|p| p.toggle_repeat());
+    };
+
+    let on_shuffle = move |_| {
+        player.with_mut(|p| p.toggle_shuffle());
+    };
 
     let progress_pct = use_memo(move || player().progress_pct());
     let volume_pct = use_memo(move || player().volume);
@@ -392,7 +402,7 @@ pub fn PlayerBar() -> Element {
     let title = use_memo(move || {
         player()
             .metadata
-            .as_ref().map_or_else(|| "Sin reproducción".to_string(), |m| m.title.clone())
+            .as_ref().map_or_else(|| "Sin reproduccion".to_string(), |m| m.title.clone())
     });
 
     let artist = use_memo(move || {
@@ -402,16 +412,18 @@ pub fn PlayerBar() -> Element {
     });
 
     let image = use_memo(move || {
-       player()
-           .metadata
-           .as_ref().map_or_else(|| "Null".to_string(), |m| m.image.clone())
+        player()
+            .metadata
+            .as_ref().map_or_else(|| "Null".to_string(), |m| m.image.clone())
     });
 
+    let repeat_mode = use_memo(move || player().repeat_mode.clone());
+    let is_shuffled = use_memo(move || player().is_shuffled);
+    let has_prev = use_memo(move || player().prev_track_exists());
+    let has_next = use_memo(move || player().next_track_exists());
     let is_playing = player().is_playing;
     let is_dragging_vol = dragging_vol();
     let is_dragging_prog = dragging_prog();
-
-
 
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/player_bar.css") }
@@ -458,12 +470,20 @@ pub fn PlayerBar() -> Element {
                 }
 
                 div { class: "player-buttons",
-                    button { class: "player-btn",
-                        svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
-                            path { d: "M6 6h2v12H6zm3.5 6l8.5 6V6z" }
+                    button {
+                        class: if is_shuffled() { "player-btn active" } else { "player-btn" },
+                        onclick: on_shuffle,
+                        svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                            polyline { points: "16 3 21 3 21 8" }
+                            line { x1: "4", y1: "20", x2: "21", y2: "3", }
+                            polyline { points: "21 16 21 21 16 21" }
+                            line { x1: "15", y1: "15", x2: "21", y2: "21", }
+                            line { x1: "4", y1: "4", x2: "9", y2: "9", }
                         }
                     }
-                    button { class: "player-btn",
+                    button {
+                        class: if has_prev() { "player-btn" } else { "player-btn disabled" },
+                        onclick: on_prev,
                         svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
                             path { d: "M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" }
                         }
@@ -481,21 +501,54 @@ pub fn PlayerBar() -> Element {
                             }
                         }
                     }
-                    button { class: "player-btn",
+                    button {
+                        class: if has_next() { "player-btn" } else { "player-btn disabled" },
+                        onclick: on_next,
                         svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
                             path { d: "M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" }
                         }
                     }
-                    button { class: "player-btn",
-                        svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
-                            path { d: "M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" }
+                    button {
+                        class: match repeat_mode() {
+                            RepeatMode::Off => "player-btn",
+                            _ => "player-btn active",
+                        },
+                        onclick: on_repeat,
+                        svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                            polyline { points: "17 1 21 5 17 9" }
+                            path { d: "M3 11V9a4 4 0 0 1 4-4h14" }
+                            polyline { points: "7 23 3 19 7 15" }
+                            path { d: "M21 13v2a4 4 0 0 1-4 4H3" }
+                            if repeat_mode() == RepeatMode::One {
+                                text { x: "10", y: "17", fill: "currentColor", font_size: "10", font_weight: "bold", "1" }
+                            }
                         }
                     }
                 }
             }
 
             div { class: "player-volume",
-                span { class: "vol-icon", {vol_icon} }
+                if volume_pct() == 0.0 {
+                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "#a0a0b0", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                        polygon { points: "11 5 6 9 2 9 2 15 6 15 11 19 11 5" }
+                        line { x1: "23", y1: "9", x2: "17", y2: "15" }
+                        line { x1: "17", y1: "9", x2: "23", y2: "15" }
+                    }
+                } else if volume_pct() < 30.0 {
+                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "#a0a0b0", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                        polygon { points: "11 5 6 9 2 9 2 15 6 15 11 19 11 5" }
+                    }
+                } else if volume_pct() < 70.0 {
+                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "#a0a0b0", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                        polygon { points: "11 5 6 9 2 9 2 15 6 15 11 19 11 5" }
+                        path { d: "M15.54 8.46a5 5 0 0 1 0 7.07" }
+                    }
+                } else {
+                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "#a0a0b0", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                        polygon { points: "11 5 6 9 2 9 2 15 6 15 11 19 11 5" }
+                        path { d: "M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" }
+                    }
+                }
 
                 div {
                     class: "slider-host volume-slider",
@@ -517,19 +570,11 @@ pub fn PlayerBar() -> Element {
                     }
                 }
 
-                button { class: "player-btn",
-                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "currentColor",
-                        path { d: "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" }
-                    }
-                }
-                button { class: "player-btn",
-                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "currentColor",
-                        path { d: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" }
-                    }
-                }
-                button { class: "player-btn",
-                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "currentColor",
-                        path { d: "M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 13H3V5h18v11z" }
+                button {
+                    class: "player-btn",
+                    onclick: move |_| show_queue.set(!show_queue()),
+                    svg { width: "20", height: "20", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round",
+                        path { d: "M4 6h16M4 12h16M4 18h16" }
                     }
                 }
             }
