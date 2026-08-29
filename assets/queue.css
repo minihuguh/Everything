@@ -1,0 +1,294 @@
+/* ============================================ */
+/* Queue Panel Styles */
+/* ============================================ */
+
+/* ---------- Panel principal ---------- */
+.queue-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 360px;
+    height: 100vh;
+    background: #0f0f1a;
+    border-left: 1px solid #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 100;
+    font-family: 'Inter', sans-serif;
+}
+
+.queue-panel.open {
+    transform: translateX(0);
+}
+
+/* ---------- Header ---------- */
+.queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid #1a1a2e;
+    flex-shrink: 0;
+}
+
+.queue-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}
+
+.queue-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #808090;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.queue-close-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+}
+
+.queue-close-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* ---------- Now Playing ---------- */
+.queue-now-playing {
+    padding: 16px 20px;
+    border-bottom: 1px solid #1a1a2e;
+    flex-shrink: 0;
+}
+
+/* ---------- Body scrollable ---------- */
+.queue-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---------- Secciones ---------- */
+.queue-section {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.queue-section + .queue-section {
+    border-top: 1px solid #1a1a2e;
+}
+
+.queue-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #808090;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+}
+
+.queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.queue-empty {
+    font-size: 13px;
+    color: #808090;
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* ---------- Items ---------- */
+.queue-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.queue-item:hover {
+    background: #1a1a2e;
+}
+
+.queue-item.active {
+    background: rgba(124, 58, 237, 0.12);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+}
+
+.queue-item-number {
+    width: 20px;
+    font-size: 12px;
+    color: #808090;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.queue-item-cover {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #2d2d44;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.queue-item-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.queue-item-cover svg {
+    width: 16px;
+    height: 16px;
+    stroke: #7c3aed;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.queue-item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.queue-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.queue-item-artist {
+    font-size: 12px;
+    color: #808090;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.queue-item-duration {
+    font-size: 12px;
+    color: #808090;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.queue-item-remove {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: #808090;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.queue-item:hover .queue-item-remove {
+    opacity: 1;
+}
+
+.queue-item-remove:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.queue-item-remove svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ---------- Footer ---------- */
+.queue-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #1a1a2e;
+    flex-shrink: 0;
+    min-height: 58px;
+}
+
+.queue-clear-btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #2d2d44;
+    background: transparent;
+    color: #808090;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.queue-clear-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.queue-clear-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ---------- Overlay backdrop ---------- */
+.queue-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 99;
+}
+
+.queue-backdrop.open {
+    opacity: 0.4;
+    pointer-events: auto;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 480px) {
+    .queue-panel {
+        width: 100%;
+    }
+}
