@@ -1,8 +1,11 @@
 // use tauri::Manager;
 mod audio;
+mod state;
+
 use tauri_plugin_log::{Target, TargetKind};
+use tauri_plugin_dialog::{DialogExt, FilePath};
 use audio::player::AudioPlayer;
-use std::sync::Mutex;
+use std::sync::{mpsc, Mutex};
 use std::time::Duration;
 use log::{error, info};
 use serde_json::Value;
@@ -48,10 +51,12 @@ fn close_window(window: tauri::WebviewWindow) {
 
 #[tauri::command]
 fn play_file(state: State<AppState>, path: String) -> Result<Value, String> {
+    info!("Operación exitosa. Datos a enviar: {:?}", path);
+
     let a = state.player.lock().unwrap().play_file(&path);
     match a {
         Ok(valor) => {
-            info!("Operación exitosa. Datos recibidos: {:?}", valor);
+            // info!("Operación exitosa. Datos recibidos: {:?}", valor);
             // Al no poner punto y coma aquí, este Ok es lo que la función retorna
             Ok(valor)
         }
@@ -101,6 +106,22 @@ fn set_time(state: State<AppState>, time_in_seconds: u64) -> Result<(), String> 
 
     // 4. Devolvemos la señal de éxito
     Ok(())
+}
+
+#[tauri::command]
+fn select_document<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Option<FilePath> {
+    let (tx, rx) = mpsc::channel();
+
+    app.dialog()
+        .file()
+        .add_filter("Text Files", &["opus", "md"])
+        .pick_file(move |file_path| {
+            let _ = tx.send(file_path);
+        });
+
+    // let response = rx.recv().map_err(|e| e.to_string())?;
+
+    rx.recv().unwrap_or(None)
 }
 
 
@@ -187,6 +208,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_fs::init())
+        // .plugin(tauri_plugin_prevent_default::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 // Define dónde quieres ver los logs (en la Terminal y/o en un archivo físico)
@@ -196,6 +218,7 @@ pub fn run() {
                 ])
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             player: Mutex::new(player),
         })
@@ -210,7 +233,8 @@ pub fn run() {
             set_volume,
             is_playing,
             get_time,
-            set_time
+            set_time,
+            select_document
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
