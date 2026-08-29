@@ -62,6 +62,24 @@
     width: 100%;
 }
 
+/* Progress updates ~1x/s from the backend; interpolate so it moves smoothly.
+   Disabled while dragging so the knob tracks the cursor. */
+.progress-slider .slider-fill {
+    transition: width 1s linear, height 0.15s;
+}
+
+.progress-slider .slider-knob {
+    transition: left 1s linear, opacity 0.15s, transform 0.1s;
+}
+
+.progress-slider.dragging .slider-fill {
+    transition: height 0.15s;
+}
+
+.progress-slider.dragging .slider-knob {
+    transition: opacity 0.15s, transform 0.1s;
+}
+
 .volume-slider {
     width: 100px;
     flex: none;
