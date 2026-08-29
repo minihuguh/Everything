@@ -8,6 +8,8 @@
     "fs:default",
     "fs:allow-read-file",
     "fs:allow-read-dir",
-    "log:default"
+    "log:default",
+    "dialog:allow-message",
+    "dialog:allow-open"
   ]
 }
