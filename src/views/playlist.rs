@@ -1,10 +1,8 @@
+use crate::ipc::commands;
+use crate::playback::reproducir_archivo_global;
 use crate::state::use_player_state;
-use crate::views::action::{log, reproducir_archivo_global, tauri_invoke};
 use dioxus::prelude::*;
 use serde::Serialize;
-use serde_json::Value;
-use wasm_bindgen::JsValue;
-use crate::state::TrackMetadata;
 #[derive(Clone, PartialEq)]
 pub struct Playlist {
     pub id: usize,
@@ -226,6 +224,7 @@ struct RespuestaPath<'a> {
 
 #[component]
 fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> Element {
+    let player = use_player_state();
     rsx! {
         div { class: "playlist-header",
             div { class: "playlist-header-top",
@@ -264,24 +263,11 @@ fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> 
 
         div { class: "fixed-lists",
             onclick: move |_| async move {
-                    match tauri_invoke("select_document", JsValue::UNDEFINED).await {
-                        Ok(result) => {
-                            match result.as_string() {
-                                Some(path) => {
-                                let mut player = use_player_state();
-                                reproducir_archivo_global(path, player);
-                                // let t = TrackMetadata {
-                                // title: "".to_string(),artist: "".to_string(),duration_secs: 0.0 , path,image: "".to_string(),};
-                                // player.write().add_to_queue(t);
-                            },
-                                None => println!("No user logged in."),
-                            }
-                        }
-                    Err(e) => {
-                        log(&format!("tauri_invoke FALLÓ: {e:?}"));
-                        }
-                    }
-                },
+                match commands::select_document().await {
+                    Some(path) => reproducir_archivo_global(path, player),
+                    None => web_sys::console::log_1(&"select_document: cancelled".into()),
+                }
+            },
             div {
                 class: "fixed-card",
                 div { class: "fixed-icon",
