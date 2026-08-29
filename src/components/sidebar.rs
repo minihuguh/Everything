@@ -95,7 +95,7 @@ pub fn Sidebar() -> Element {
                 SidebarItem { current_view, view: "home", label: "Explorar", icon: home_icon() }
                 SidebarItem { current_view, view: "search", label: "Buscar", icon: search_icon() }
                 // SidebarItem { current_view, view: "lyrics", label: "Letras", icon: lyrics_icon() }
-                SidebarItem { current_view, view: "stats", label: "Estadísticas", icon: stats_icon() }
+                SidebarItem { current_view, view: "stadistics", label: "Estadísticas", icon: stats_icon() }
             }
 
             div { class: "sidebar-divider" }
