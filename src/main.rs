@@ -1,7 +1,10 @@
 mod app;
 mod components;
-mod views;
+mod ipc;
+mod playback;
 mod state;
+mod util;
+mod views;
 
 
 use app::App;
