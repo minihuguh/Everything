@@ -71,14 +71,15 @@ impl PlayerState {
     }
 
     pub fn current_track(&self) -> Option<&TrackMetadata> {
-        match self.current_source {
+        let from_index = match self.current_source {
             QueueSource::Playlist => {
                 self.current_playlist_index.and_then(|i| self.active_playlist.get(i))
             }
             QueueSource::Queue => {
                 self.current_queue_index.and_then(|i| self.user_queue.get(i))
             }
-        }
+        };
+        from_index.or(self.metadata.as_ref())
     }
 
     pub fn next_track_exists(&self) -> bool {
@@ -112,7 +113,7 @@ impl PlayerState {
     }
 
     pub fn prev_track_exists(&self) -> bool {
-        !self.history.is_empty()
+        !self.history.is_empty() && self.current_queue_index.is_some()
     }
 
     pub fn play_playlist(&mut self, tracks: Vec<TrackMetadata>, name: String, start_index: usize) {
@@ -215,7 +216,7 @@ impl PlayerState {
                 if !self.user_queue.is_empty() {
                     self.current_source = QueueSource::Queue;
                     self.current_queue_index = Some(0);
-                    self.current_playlist_index = None;
+                    // self.current_playlist_index = None;
                 } else if let Some(idx) = self.current_playlist_index {
                     if idx + 1 < self.active_playlist.len() {
                         self.current_playlist_index = Some(idx + 1);
@@ -272,20 +273,13 @@ impl PlayerState {
     }
     pub fn go_back(&mut self) {
         if let Some(entry) = self.history.pop() {
-            if let Some(current) = self.current_track().cloned() {
-                self.history.push(HistoryEntry {
-                    source: self.current_source,
-                    playlist_index: self.current_playlist_index,
-                    queue_index: self.current_queue_index,
-                    track: current,
-                });
-            }
             self.current_source = entry.source;
             self.current_playlist_index = entry.playlist_index;
             self.current_queue_index = entry.queue_index;
             self.current_time = 0.0;
             self.metadata = Some(entry.track);
             self.duration = self.metadata.as_ref().map(|m| m.duration_secs).unwrap_or(0.0);
+            self.is_playing = true;
         }
     }
 
