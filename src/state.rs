@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-
+use crate::ipc::log;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TrackMetadata {
     pub title: String,
@@ -195,6 +195,12 @@ impl PlayerState {
     }
 
     pub fn advance(&mut self) {
+        if self.repeat_mode == RepeatMode::One {
+            self.current_time = 0.0;
+            self.is_playing = true;
+            return;
+        }
+
         if let Some(current) = self.current_track().cloned() {
             self.history.push(HistoryEntry {
                 source: self.current_source,
@@ -264,7 +270,6 @@ impl PlayerState {
             self.duration = meta.duration_secs;
         }
     }
-
     pub fn go_back(&mut self) {
         if let Some(entry) = self.history.pop() {
             if let Some(current) = self.current_track().cloned() {
