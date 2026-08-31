@@ -1,4 +1,4 @@
-use super::dto::PlayResponse;
+use super::dto::{Metadata, PlayResponse};
 use super::{err, invoke};
 use wasm_bindgen::prelude::*;
 
@@ -35,7 +35,6 @@ pub async fn set_volume(fraction: f64) {
         err(&format!("set_volume: {e:?}"));
     }
 }
-
 pub async fn play_file(path: &str) -> Option<PlayResponse> {
     let args = args(serde_json::json!({ "path": path }))?;
     let raw = match invoke("play_file", args).await {
@@ -51,6 +50,26 @@ pub async fn play_file(path: &str) -> Option<PlayResponse> {
             .ok(),
         Err(e) => {
             err(&format!("play_file: JsValue -> Value failed: {e:?}"));
+            None
+        }
+    }
+}
+
+pub async fn get_metadata(path: &str) -> Option<Metadata> {
+    let args = args(serde_json::json!({ "path": path }))?;
+    let raw = match invoke("get_metadata", args).await {
+        Ok(v) => v,
+        Err(e) => {
+            err(&format!("metadata: {e:?}"));
+            return None;
+        }
+    };
+    match serde_wasm_bindgen::from_value::<serde_json::Value>(raw) {
+        Ok(json) => serde_json::from_value::<Metadata>(json.clone())
+            .map_err(|e| err(&format!("metadata: parse failed ({e:?}) — raw={json:?}")))
+            .ok(),
+        Err(e) => {
+            err(&format!("metadata: JsValue -> Value failed: {e:?}"));
             None
         }
     }
