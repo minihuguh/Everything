@@ -36,7 +36,7 @@ impl AudioPlayer {
         Ok(TrackMetadata {
             title: meta.title.clone().unwrap_or_default(),
             artist: meta.artist.clone().unwrap_or_default(),
-            duration_secs: meta.duration.map(|d| d.as_secs_f64()).unwrap_or(0.0),
+            duration: meta.duration.map(|d| d.as_secs_f64()).unwrap_or(0.0),
             path: path.to_string(),
             image,
         })
@@ -50,7 +50,7 @@ impl AudioPlayer {
             "metadata": {
                 "title": track.title,
                 "artist": track.artist,
-                "duration": track.duration_secs,
+                "duration": track.duration,
                 "image": track.image,
             }
         }))
