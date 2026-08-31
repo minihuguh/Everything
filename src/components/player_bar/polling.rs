@@ -1,4 +1,4 @@
-use crate::ipc::commands;
+use crate::ipc::{commands};
 use crate::state::PlayerState;
 use dioxus::prelude::*;
 use std::cell::RefCell;
@@ -26,12 +26,30 @@ pub fn use_playback_polling(player: Signal<PlayerState>, active: Memo<bool>) {
             let mut player = player;
             wasm_bindgen_futures::spawn_local(async move {
                 if let Some(time) = commands::get_time().await {
+                    let mut next_track_path: Option<String> = None;
+                    let mut should_stop = false;
+
                     player.with_mut(|p| {
                         p.current_time = time;
-                        if p.duration > 0.0 && time >= p.duration - 1.0 {
+
+                        if p.duration > 0.0 && time >= (p.duration - 1.0) {
                             p.advance();
+
+                            if p.is_playing {
+                                if let Some(track) = p.current_track() {
+                                    next_track_path = Some(track.path.clone());
+                                }
+                            } else {
+                                should_stop = true;
+                            }
                         }
                     });
+
+                    if let Some(path) = next_track_path {
+                        let _ = commands::play_file(&path).await;
+                    } else if should_stop {
+                        let _ = commands::stop().await;
+                    }
                 }
             });
         }) as Box<dyn FnMut()>);
