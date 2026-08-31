@@ -1,6 +1,7 @@
-use crate::ipc::commands;
+use crate::ipc::{commands, log};
 use crate::playback::reproducir_archivo_global;
 use crate::state::use_player_state;
+use crate::state::TrackMetadata;
 use dioxus::prelude::*;
 use serde::Serialize;
 #[derive(Clone, PartialEq)]
@@ -224,7 +225,7 @@ struct RespuestaPath<'a> {
 
 #[component]
 fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> Element {
-    let player = use_player_state();
+    let mut player = use_player_state();
     rsx! {
         div { class: "playlist-header",
             div { class: "playlist-header-top",
@@ -264,7 +265,30 @@ fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> 
         div { class: "fixed-lists",
             onclick: move |_| async move {
                 match commands::select_document().await {
-                    Some(path) => reproducir_archivo_global(path, player),
+                    Some(path) => {
+                        match commands::get_metadata(&*path).await {
+                            Some(p) => {
+                                log(&format!("Metadata: title: {}\nArtista: {}\nDuracion: {}\nimagen: {}", p.title, p.artist, p.duration, p.image));
+                                let track = TrackMetadata {
+                                    title: p.title,
+                                    artist: p.artist,
+                                    duration_secs: p.duration,
+                                    path: path.clone(),
+                                    image: p.image,
+                                };
+                                                let was_empty = player().user_queue.is_empty() && player().current_track().is_none();
+
+                player.with_mut(|state| {
+                    state.add_to_queue(track);
+                });
+
+                if was_empty {
+                    let _ = commands::play_file(&path).await;
+                }
+                        },
+                            None => (),
+                        }
+                    },
                     None => web_sys::console::log_1(&"select_document: cancelled".into()),
                 }
             },
