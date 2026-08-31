@@ -1,8 +1,10 @@
-#[derive(Clone, Debug, Default, PartialEq)]
+use serde::Serialize;
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct TrackMetadata {
     pub title: String,
     pub artist: String,
-    pub duration_secs: f64,
+    pub duration: f64,
     pub path: String,
     pub image: String,
 }
