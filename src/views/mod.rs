@@ -5,3 +5,4 @@ pub mod search;
 pub mod lyrics;
 pub mod stadistics;
 pub mod queue;
+pub mod action;
