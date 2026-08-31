@@ -186,7 +186,7 @@ fn QueueItem(
                         circle { cx: "18", cy: "16", r: "3", stroke: "#7c3aed", fill: "none", "stroke-width": "2" }
                     }
                 } else {
-                    img { src: "{track.image}", alt: "{track.title}" }
+                    img { src: "data:image/jpeg;base64,{track.image}", alt: "{track.title}" }
                 }
             }
             div { class: "queue-item-info",
