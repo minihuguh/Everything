@@ -16,6 +16,7 @@ use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, Manager,
 };
+use crate::state::TrackMetadata;
 // use tauri::{
 //     include_image,
 //     menu::{Menu, MenuItem},
@@ -124,6 +125,29 @@ fn select_document<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Option<FilePa
     rx.recv().unwrap_or(None)
 }
 
+#[tauri::command]
+fn get_metadata(state: State<AppState>, path: String) -> TrackMetadata {
+    info!("Operación exitosa. Datos a enviar: {:?}", path);
+
+    let a = state.player.lock().unwrap().extract_metadata(&path);
+    match a {
+        Ok(valor) => {
+            // info!("Operación exitosa. Datos recibidos: {:?}", valor);
+            // Al no poner punto y coma aquí, este Ok es lo que la función retorna
+            valor
+        }
+        Err(mensaje_error) => {
+            error!("Falló la operación. Motivo: {}", mensaje_error);
+            TrackMetadata {
+                title: "".to_string(),
+                artist: "".to_string(),
+                duration: 0.0,
+                path,
+                image: "".to_string(),
+            }
+        }
+    }
+}
 
 #[tauri::command]
 fn is_playing(state: State<AppState>) -> bool {
@@ -234,7 +258,8 @@ pub fn run() {
             is_playing,
             get_time,
             set_time,
-            select_document
+            select_document,
+            get_metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
