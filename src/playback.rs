@@ -18,11 +18,11 @@ pub fn reproducir_archivo_global(path: String, mut player: Signal<PlayerState>) 
                 s.metadata = Some(TrackMetadata {
                     title: meta.title,
                     artist: meta.artist,
-                    duration_secs: meta.duration_secs,
+                    duration_secs: meta.duration,
                     path: path.clone(),
                     image: meta.image,
                 });
-                s.duration = meta.duration_secs;
+                s.duration = meta.duration;
                 s.current_time = 0.0;
                 s.is_playing = true;
                 s.is_loading = false;
