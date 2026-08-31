@@ -9,7 +9,7 @@ pub struct PlayResponse {
 pub struct Metadata {
     pub title: String,
     pub artist: String,
-    #[serde(rename = "duration")]
-    pub duration_secs: f64,
+    // #[serde(rename = "duration")]
+    pub duration: f64,
     pub image: String,
 }
