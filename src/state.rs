@@ -113,7 +113,26 @@ impl PlayerState {
     }
 
     pub fn prev_track_exists(&self) -> bool {
-        !self.history.is_empty() && self.current_queue_index.is_some()
+        if self.current_time > 3.0 {
+            return true;
+        }
+
+        match self.current_source {
+            QueueSource::Queue => {
+                if let Some(idx) = self.current_queue_index {
+                    idx > 0
+                } else {
+                    false
+                }
+            }
+            QueueSource::Playlist => {
+                if let Some(idx) = self.current_playlist_index {
+                    idx > 0
+                } else {
+                    false
+                }
+            }
+        }
     }
 
     pub fn play_playlist(&mut self, tracks: Vec<TrackMetadata>, name: String, start_index: usize) {
@@ -167,12 +186,14 @@ impl PlayerState {
                     self.user_queue.clear();
                     self.user_queue.push(current);
                     self.current_queue_index = Some(0);
+                    self.history.retain(|e| e.source != QueueSource::Queue);
                     return;
                 }
             }
         }
         self.user_queue.clear();
         self.current_queue_index = None;
+        self.history.retain(|e| e.source != QueueSource::Queue);
     }
 
     pub fn remove_from_queue(&mut self, index: usize) {
@@ -189,6 +210,22 @@ impl PlayerState {
                 }
             }
         }
+
+        self.history.retain_mut(| entry |{
+            if entry.source == QueueSource::Queue {
+                if let Some(queue_index) = entry.queue_index {
+                    if queue_index == index {
+                        return false;
+                    } else if queue_index < index {
+                        if index < queue_index {
+                            entry.queue_index = Some(queue_index - 1);
+                        }
+                    }
+                }
+            }
+            true
+        });
+
         self.user_queue.remove(index);
         if self.user_queue.is_empty() {
             self.current_queue_index = None;
@@ -271,18 +308,49 @@ impl PlayerState {
             self.duration = meta.duration_secs;
         }
     }
-    pub fn go_back(&mut self) {
-        if let Some(entry) = self.history.pop() {
-            self.current_source = entry.source;
-            self.current_playlist_index = entry.playlist_index;
-            self.current_queue_index = entry.queue_index;
+    pub fn go_back(&mut self) -> bool {
+        if self.current_time > 3.0 {
             self.current_time = 0.0;
-            self.metadata = Some(entry.track);
-            self.duration = self.metadata.as_ref().map(|m| m.duration_secs).unwrap_or(0.0);
-            self.is_playing = true;
+            return true;
         }
-    }
 
+        if self.current_source == QueueSource::Queue {
+            if let Some(idx) = self.current_queue_index {
+                if idx > 0 {
+                    self.current_queue_index = Some(idx - 1);
+                    self.current_time = 0.0;
+                    self.metadata = self.current_track().cloned();
+                    if let Some(meta) = &self.metadata {
+                        self.duration = meta.duration_secs;
+                    }
+                    self.is_playing = true;
+                    return true;
+                }
+            }
+            self.current_time = 0.0;
+            return false;
+        }
+
+        if self.current_source == QueueSource::Playlist {
+            if let Some(idx) = self.current_playlist_index {
+                if idx > 0 {
+                    self.current_playlist_index = Some(idx - 1);
+                    self.current_time = 0.0;
+                    self.metadata = self.current_track().cloned();
+                    if let Some(meta) = &self.metadata {
+                        self.duration = meta.duration_secs;
+                    }
+                    self.is_playing = true;
+                    return true;
+                }
+            }
+            self.current_time = 0.0;
+            return false;
+        }
+
+        self.current_time = 0.0;
+        false
+    }
     pub fn toggle_repeat(&mut self) {
         self.repeat_mode = match self.repeat_mode {
             RepeatMode::Off => RepeatMode::All,
@@ -322,6 +390,10 @@ impl PlayerState {
         if index >= self.user_queue.len() {
             return;
         }
+        if self.current_source == QueueSource::Queue && self.current_queue_index == Some(index) {
+            return;
+        }
+
         if let Some(current) = self.current_track().cloned() {
             self.history.push(HistoryEntry {
                 source: self.current_source,
@@ -367,7 +439,7 @@ pub fn provide_player_state() {
         is_playing: false,
         current_time: 0.0,
         duration: 0.0,
-        volume: 100.0,
+        volume: 10.0,
         metadata: None,
         is_loading: false,
         is_dragging_prog: false,
