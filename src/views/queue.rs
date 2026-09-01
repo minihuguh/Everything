@@ -1,5 +1,6 @@
+use crate::ipc::commands;
+use crate::state::{use_player_state, QueueSource, TrackMetadata};
 use dioxus::prelude::*;
-use crate::state::{use_player_state, TrackMetadata, QueueSource};
 
 #[component]
 pub fn QueuePanel(show: Signal<bool>) -> Element {
@@ -26,6 +27,7 @@ pub fn QueuePanel(show: Signal<bool>) -> Element {
                     QueueItem {
                         track: current.clone(),
                         is_active: true,
+                        is_past: false,
                         show_number: false,
                         number: 0,
                         on_click: None,
@@ -81,33 +83,37 @@ fn QueueUserQueueList(player: Signal<crate::state::PlayerState>) -> Element {
     let current_source = player().current_source;
     let current_queue_idx = player().current_queue_index;
 
-    let upcoming: Vec<(usize, TrackMetadata)> = if current_source == QueueSource::Queue {
-        if let Some(idx) = current_queue_idx {
-            user_queue.iter().enumerate().skip(idx + 1).map(|(i, t)| (i, t.clone())).collect()
-        } else {
-            user_queue.into_iter().enumerate().collect()
-        }
-    } else {
-        user_queue.into_iter().enumerate().collect()
-    };
-
     rsx! {
-        if upcoming.is_empty() {
+        if user_queue.is_empty() {
             div { class: "queue-empty", "No hay canciones en la cola" }
         } else {
-            for (idx, track) in upcoming {
-                QueueItem {
-                    key: "uq-{idx}",
-                    track: track,
-                    is_active: false,
-                    show_number: true,
-                    number: idx + 1,
-                    on_click: Some(EventHandler::new(move |_| {
-                        player.write().jump_to_queue(idx);
-                    })),
-                    on_remove: Some(EventHandler::new(move |_| {
-                        player.write().remove_from_queue(idx);
-                    })),
+            for (idx, track) in user_queue.into_iter().enumerate() {
+                {
+                    let is_in_queue = current_source == QueueSource::Queue;
+                    let is_active = is_in_queue && current_queue_idx == Some(idx);
+                    let is_past = is_in_queue && current_queue_idx.map_or(false, |cur| idx < cur);
+
+                    rsx! {
+                        QueueItem {
+                            key: "uq-{idx}",
+                            track: track,
+                            is_active: is_active,
+                            is_past: is_past,
+                            show_number: true,
+                            number: idx + 1,
+                            on_click: Some(EventHandler::new(move |_| {
+                                player.write().jump_to_queue(idx);
+                                if let Some(track) = player.read().current_track().cloned() {
+                                spawn (async move {
+                                    let _ = commands::play_file(&track.path).await;
+                                });
+                            }
+                            })),
+                            on_remove: Some(EventHandler::new(move |_| {
+                                player.write().remove_from_queue(idx);
+                            })),
+                        }
+                    }
                 }
             }
         }
@@ -120,35 +126,30 @@ fn QueueActivePlaylistList(player: Signal<crate::state::PlayerState>) -> Element
     let current_source = player().current_source;
     let current_playlist_idx = player().current_playlist_index;
 
-    let upcoming: Vec<(usize, TrackMetadata)> = if current_source == QueueSource::Playlist {
-        if let Some(idx) = current_playlist_idx {
-            playlist.iter().enumerate().skip(idx + 1).map(|(i, t)| (i, t.clone())).collect()
-        } else {
-            playlist.into_iter().enumerate().collect()
-        }
-    } else {
-        if let Some(idx) = current_playlist_idx {
-            playlist.iter().enumerate().skip(idx + 1).map(|(i, t)| (i, t.clone())).collect()
-        } else {
-            playlist.into_iter().enumerate().collect()
-        }
-    };
-
     rsx! {
-        if upcoming.is_empty() {
+        if playlist.is_empty() {
             div { class: "queue-empty", "No hay mas canciones en la lista" }
         } else {
-            for (idx, track) in upcoming {
-                QueueItem {
-                    key: "ap-{idx}",
-                    track: track,
-                    is_active: false,
-                    show_number: true,
-                    number: idx + 1,
-                    on_click: Some(EventHandler::new(move |_| {
-                        player.write().jump_to_playlist(idx);
-                    })),
-                    on_remove: None,
+            for (idx, track) in playlist.into_iter().enumerate() {
+                {
+                    let is_in_playlist = current_source == QueueSource::Playlist;
+                    let is_active = is_in_playlist && current_playlist_idx == Some(idx);
+                    let is_past = current_playlist_idx.map_or(false, |cur| idx < cur);
+
+                    rsx! {
+                        QueueItem {
+                            key: "ap-{idx}",
+                            track: track,
+                            is_active: is_active,
+                            is_past: is_past,
+                            show_number: true,
+                            number: idx + 1,
+                            on_click: Some(EventHandler::new(move |_| {
+                                player.write().jump_to_playlist(idx);
+                            })),
+                            on_remove: None,
+                        }
+                    }
                 }
             }
         }
@@ -159,14 +160,19 @@ fn QueueActivePlaylistList(player: Signal<crate::state::PlayerState>) -> Element
 fn QueueItem(
     track: TrackMetadata,
     is_active: bool,
+    #[props(default = false)] is_past: bool,
     show_number: bool,
-    #[props(default = 0)]
-    number: usize,
+    #[props(default = 0)] number: usize,
     on_click: Option<EventHandler<()>>,
     on_remove: Option<EventHandler<()>>,
 ) -> Element {
-    let item_class = if is_active { "queue-item active" } else { "queue-item" };
-
+    let item_class = if is_active {
+        "queue-item active"
+    } else if is_past {
+        "queue-item past"
+    } else {
+        "queue-item"
+    };
     rsx! {
         div {
             class: "{item_class}",
