@@ -1,6 +1,6 @@
-.vscode
 Everything
 clean.bat
-target
-.idea
+/target/
+/.idea/
 /dist/
+/.vscode/
