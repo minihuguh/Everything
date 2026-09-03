@@ -232,13 +232,7 @@ impl PlayerState {
         }
     }
 
-    pub fn advance(&mut self) {
-        if self.repeat_mode == RepeatMode::One {
-            self.current_time = 0.0;
-            self.is_playing = true;
-            return;
-        }
-
+    fn avoid_duplicate_code (&mut self) {
         if let Some(current) = self.current_track().cloned() {
             self.history.push(HistoryEntry {
                 source: self.current_source,
@@ -247,6 +241,16 @@ impl PlayerState {
                 track: current,
             });
         }
+    }
+
+    pub fn advance(&mut self) {
+        if self.repeat_mode == RepeatMode::One {
+            self.current_time = 0.0;
+            self.is_playing = true;
+            return;
+        }
+
+        self.avoid_duplicate_code();
 
         match self.current_source {
             QueueSource::Playlist => {
@@ -311,6 +315,9 @@ impl PlayerState {
     pub fn go_back(&mut self) -> bool {
         if self.current_time > 3.0 {
             self.current_time = 0.0;
+            if !self.is_playing {
+                self.is_playing = true;
+            }
             return true;
         }
 
@@ -348,6 +355,10 @@ impl PlayerState {
             return false;
         }
 
+        // if !self.is_playing {
+        //     self.is_playing = true;
+        // }
+
         self.current_time = 0.0;
         false
     }
@@ -367,14 +378,7 @@ impl PlayerState {
         if index >= self.active_playlist.len() {
             return;
         }
-        if let Some(current) = self.current_track().cloned() {
-            self.history.push(HistoryEntry {
-                source: self.current_source,
-                playlist_index: self.current_playlist_index,
-                queue_index: self.current_queue_index,
-                track: current,
-            });
-        }
+        self.avoid_duplicate_code();
         self.current_source = QueueSource::Playlist;
         self.current_playlist_index = Some(index);
         self.current_queue_index = None;
@@ -394,14 +398,8 @@ impl PlayerState {
             return;
         }
 
-        if let Some(current) = self.current_track().cloned() {
-            self.history.push(HistoryEntry {
-                source: self.current_source,
-                playlist_index: self.current_playlist_index,
-                queue_index: self.current_queue_index,
-                track: current,
-            });
-        }
+        self.avoid_duplicate_code();
+
         self.current_source = QueueSource::Queue;
         self.current_queue_index = Some(index);
         self.current_playlist_index = None;
