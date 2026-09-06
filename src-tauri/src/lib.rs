@@ -1,6 +1,7 @@
 mod audio;
 mod state;
 mod commands;
+mod utils;
 
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_dialog::{DialogExt, FilePath};

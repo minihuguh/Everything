@@ -1,12 +1,15 @@
+use crate::state::TrackMetadata;
+use crate::AppState;
+use log::{debug, error, info};
+use serde_json::Value;
+use std::fs;
 use std::sync::mpsc;
 use std::time::Duration;
-use log::{error, info};
-use serde_json::Value;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FilePath;
-use crate::AppState;
-use crate::state::TrackMetadata;
+use crate::utils::parser;
+use crate::utils::parser::parse;
 
 #[tauri::command]
 pub fn minimize_window(window: tauri::WebviewWindow) {
@@ -82,7 +85,7 @@ pub fn set_time(state: State<AppState>, time_in_seconds: u64) -> Result<(), Stri
 }
 
 #[tauri::command]
-pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Option<FilePath> {
+pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     let (tx, rx) = mpsc::channel();
 
     app.dialog()
@@ -94,7 +97,11 @@ pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Option<File
 
     // let response = rx.recv().map_err(|e| e.to_string())?;
 
-    rx.recv().unwrap_or(None)
+    let file = rx.recv().unwrap_or(None);
+    let xml = fs::read_to_string(file.unwrap().to_string());
+    let temp = parse(&*xml.unwrap());
+    debug!("Datos recibidos desde PARSER: {:?}", temp);
+    // Ok(result?)
 }
 
 #[tauri::command]
