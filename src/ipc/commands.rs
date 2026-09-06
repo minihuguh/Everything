@@ -1,5 +1,5 @@
 use super::dto::{Metadata, PlayResponse};
-use super::{err, invoke};
+use super::{err, invoke, log};
 use wasm_bindgen::prelude::*;
 
 fn args(value: serde_json::Value) -> Option<JsValue> {
@@ -35,6 +35,20 @@ pub async fn set_volume(fraction: f64) {
         err(&format!("set_volume: {e:?}"));
     }
 }
+
+pub async fn playlist() {
+    match invoke("open_playlist", JsValue::UNDEFINED).await {
+        Ok(v) => {
+            // let playlist = Playlist::read_file(&v.as_string().unwrap());
+            log(&format!("playlist: {v:?}"));
+        },
+        Err(e) => {
+            err(&format!("select_document: {e:?}"));
+        }
+    }
+
+}
+
 pub async fn play_file(path: &str) -> Option<PlayResponse> {
     let args = args(serde_json::json!({ "path": path }))?;
     let raw = match invoke("play_file", args).await {
