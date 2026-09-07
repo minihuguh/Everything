@@ -1,7 +1,6 @@
 mod app;
 mod components;
 mod ipc;
-mod playback;
 mod state;
 mod util;
 mod views;
