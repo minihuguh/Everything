@@ -30,9 +30,8 @@ tauri-plugin-fs = "2.5.1"
 log = "0.4.33"
 tauri-plugin-log = "2.9.0"
 matroska = "0.30.1"
-base64 = "0.22.1"
+base64 = "0.23.1"
 tauri-plugin-dialog = "2.7.2"
-quick-xml = { version = "0.42.0", features = ["serde", "serialize"] }
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
