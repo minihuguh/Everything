@@ -1,181 +1,9 @@
-use crate::playback::reproducir_archivo_global;
 use crate::state::use_player_state;
-
-//
-// #[component]
-// pub fn Home() -> Element {
-//     let mut path = use_signal(|| {
-//         String::from(
-//             "C:\\Users\\PC\\Downloads\\Alesso - Take My Breath Away (Lyric Video) [o10EV4PG40U].webm",
-//         )
-//     });
-//
-//     let player = use_player_state();
-//
-//     fn log(msg: &str) {
-//         web_sys::console::log_1(&format!("[HOME] {msg}").into());
-//     }
-//
-//     // ─── Handler reproducir ───
-//     let on_play = move |_| {
-//         let path_val = path();
-//         let mut player = player;
-//
-//         async move {
-//             log("=== PLAY iniciado ===");
-//             player.with_mut(|s| s.is_loading = true);
-//
-//             // Serializar args con serde_json (escape automático del path)
-//             let args = match serde_wasm_bindgen::to_value(
-//                 &serde_json::json!({"path": path_val})
-//             ) {
-//                 Ok(v) => v,
-//                 Err(e) => {
-//                     log(&format!("Failed to serialize args: {e:?}"));
-//                     player.with_mut(|s| s.is_loading = false);
-//                     return;
-//                 }
-//             };
-//
-//             log("Llamando a Tauri nativo...");
-//
-//             match tauri_invoke("play_file", args).await {
-//                 Ok(result) => {
-//                     log("tauri_invoke OK, convirtiendo JsValue...");
-//
-//                     // Convertir JsValue → serde_json::Value
-//                     let json_value: Value = match serde_wasm_bindgen::from_value(result) {
-//                         Ok(v) => v,
-//                         Err(e) => {
-//                             log(&format!("serde_wasm_bindgen::from_value FALLÓ: {e:?}"));
-//                             player.with_mut(|s| s.is_loading = false);
-//                             return;
-//                         }
-//                     };
-//
-//                     log(&format!("JSON Value recibido: {json_value:?}"));
-//
-//                     // Intentar parseo tipado
-//                     match serde_json::from_value::<PlayResponse>(json_value.clone()) {
-//                         Ok(resp) => {
-//                             log(&format!("Parseo tipado OK: {resp:?}"));
-//
-//                             if let Some(meta) = resp.metadata {
-//                                 log(&format!("Metadata — title: {}, artist: {}, duration: {}",
-//                                              meta.title, meta.artist, meta.duration_secs));
-//
-//                                 player.with_mut(|s| {
-//                                     s.metadata = Some(TrackMetadata {
-//                                         title: meta.title,
-//                                         artist: meta.artist,
-//                                         duration_secs: meta.duration_secs,
-//                                         path: path_val.clone(),
-//                                     });
-//                                     s.duration = meta.duration_secs;
-//                                     s.current_time = 0.0;
-//                                     s.is_playing = true;
-//                                     s.is_loading = false;
-//                                 });
-//
-//                                 log(&format!("Estado actualizado — duration: {}", player().duration));
-//                             } else {
-//                                 log("ERROR: metadata es None");
-//                                 player.with_mut(|s| s.is_loading = false);
-//                             }
-//                         }
-//                         Err(e_tipado) => {
-//                             log(&format!("Parseo tipado FALLÓ: {e_tipado:?}"));
-//                             log(&format!("Estructura raw: {json_value:?}"));
-//
-//                             // Fallback: leer manualmente desde Value
-//                             if let Some(meta) = json_value.get("metadata") {
-//                                 if let Some(dur) = meta.get("duration").and_then(serde_json::Value::as_f64) {
-//                                     log(&format!("Fallback manual — duration: {dur}"));
-//                                     player.with_mut(|s| {
-//                                         s.duration = dur;
-//                                         s.is_playing = true;
-//                                         s.is_loading = false;
-//                                     });
-//                                 }
-//                             } else {
-//                                 player.with_mut(|s| s.is_loading = false);
-//                             }
-//                         }
-//                     }
-//                 }
-//                 Err(e) => {
-//                     log(&format!("tauri_invoke FALLÓ: {e:?}"));
-//                     player.with_mut(|s| s.is_loading = false);
-//                 }
-//             }
-//
-//             log(&format!("=== PLAY finalizado — duration: {} ===", player().duration));
-//         }
-//     };
-//
-//     // ─── Handler pausar ───
-//     let on_pause = move |_| {
-//         let mut player = player;
-//         async move {
-//             let _ = tauri_invoke("pause", JsValue::NULL).await;
-//             player.with_mut(|s| s.is_playing = false);
-//         }
-//     };
-//
-//     // ─── Handler reanudar ───
-//     let on_resume = move |_| {
-//         let mut player = player;
-//         async move {
-//             let _ = tauri_invoke("resume", JsValue::NULL).await;
-//             player.with_mut(|s| s.is_playing = true);
-//         }
-//     };
-//
-//     // ─── Handler detener ───
-//     let on_stop = move |_| {
-//         let mut player = player;
-//         async move {
-//             let _ = tauri_invoke("stop", JsValue::NULL).await;
-//             player.with_mut(|s| {
-//                 s.is_playing = false;
-//                 s.current_time = 0.0;
-//             });
-//         }
-//     };
-//
-//     rsx! {
-//         div { class: "test-audio",
-//             input {
-//                 value: "{path()}",
-//                 oninput: move |e| path.set(e.value())
-//             }
-//             button {
-//                 onclick: on_play,
-//                 if player().is_loading {
-//                     "⏳ Cargando..."
-//                 } else {
-//                     "▶ Reproducir"
-//                 }
-//             }
-//             button {
-//                 onclick: on_pause,
-//                 "⏸ Pausar"
-//             }
-//             button {
-//                 onclick: on_resume,
-//                 "▶ Reanudar"
-//             }
-//             button {
-//                 onclick: on_stop,
-//                 "⏹ Detener"
-//             }
-//         }
-//     }
-// }
+use parser::Playlist;
 
 use chrono::Timelike;
 use dioxus::prelude::*;
-
+use crate::ipc::commands;
 // ============================================================
 // Tipos de datos
 // ============================================================
@@ -226,11 +54,6 @@ pub fn quick_access_items() -> Vec<QuickAccessItem> {
             cover_url: None,
             on_play: None,
         },
-        // QuickAccessItem {
-        //     title: "Podcast Diario",
-        //     icon: "🎙",
-        //     cover_url: None,
-        // },
         QuickAccessItem {
             title: "Entrenamiento",
             icon: "💪",
@@ -353,14 +176,14 @@ pub fn Home() -> Element {
 
     let player = use_player_state();
 
-    let on_play = move |_: MouseEvent| reproducir_archivo_global(path(), player);
+    let on_play = move |_: MouseEvent| commands::playlist();
 
-    quick[2] = QuickAccessItem {
-        title: "Historial",
-        icon: "🕐",
-        cover_url: None,
-        on_play: Some(EventHandler::new(on_play)),
-    };
+    // quick[2] = QuickAccessItem {
+    //     title: "Historial",
+    //     icon: "🕐",
+    //     cover_url: None,
+    //     on_play: Some(EventHandler::new(on_play)),
+    // };
 
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/home.css") }
