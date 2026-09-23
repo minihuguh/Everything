@@ -1,17 +1,16 @@
 mod audio;
 mod state;
 mod commands;
-mod utils;
 
-use tauri_plugin_log::{Target, TargetKind};
-use tauri_plugin_dialog::{DialogExt, FilePath};
 use audio::player::AudioPlayer;
-use std::sync::{Mutex};
 use log::{debug, error, info, warn};
+use std::sync::Mutex;
+use tauri_plugin_dialog::{DialogExt, FilePath};
+use tauri_plugin_log::{Target, TargetKind};
 // use audio::symphonia_source::SymphoniaSource;
 
-use tauri::Manager;
 use crate::commands::*;
+use tauri::Manager;
 
 pub struct AppState {
     player: Mutex<AudioPlayer>,
@@ -59,7 +58,7 @@ pub fn run() {
             set_time,
             select_document,
             get_metadata,
-            open_playlist
+            open_playlist,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
