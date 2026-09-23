@@ -1,6 +1,7 @@
 use super::dto::{Metadata, PlayResponse};
 use super::{err, invoke, log};
 use wasm_bindgen::prelude::*;
+use parser::Playlist;
 
 fn args(value: serde_json::Value) -> Option<JsValue> {
     serde_wasm_bindgen::to_value(&value)
@@ -36,18 +37,25 @@ pub async fn set_volume(fraction: f64) {
     }
 }
 
-pub async fn playlist() {
-    match invoke("open_playlist", JsValue::UNDEFINED).await {
-        Ok(v) => {
-            // let playlist = Playlist::read_file(&v.as_string().unwrap());
-            log(&format!("playlist: {v:?}"));
-        },
+pub async fn playlist() -> Option<Playlist> {
+    let raw = match invoke("open_playlist", JsValue::UNDEFINED).await {
+        Ok(v) => v,
         Err(e) => {
-            err(&format!("select_document: {e:?}"));
+            err(&format!("open_playlist: {e:?}"));
+            return None;
+        }
+    };
+    match serde_wasm_bindgen::from_value::<serde_json::Value>(raw) {
+        Ok(json) => serde_json::from_value::<Playlist>(json.clone())
+            .map_err(|e| err(&format!("playlist: parse failed ({e:?}) — raw={json:?}")))
+            .ok(),
+        Err(e) => {
+            err(&format!("playlist: JsValue -> Value failed: {e:?}"));
+            None
         }
     }
-
 }
+
 
 pub async fn play_file(path: &str) -> Option<PlayResponse> {
     let args = args(serde_json::json!({ "path": path }))?;

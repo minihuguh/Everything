@@ -2,7 +2,7 @@ use crate::ipc::{commands, log};
 use crate::state::use_player_state;
 use crate::state::TrackMetadata;
 use dioxus::prelude::*;
-use serde::Serialize;
+
 #[derive(Clone, PartialEq)]
 pub struct Playlist {
     pub id: usize,
@@ -11,6 +11,7 @@ pub struct Playlist {
     pub song_count: usize,
     pub duration: &'static str,
     pub cover_url: Option<&'static str>,
+    pub path: &'static str,
     pub is_downloaded: bool,
 }
 
@@ -38,6 +39,7 @@ pub fn playlists_data() -> Vec<Playlist> {
             author: "Tu",
             song_count: 24,
             duration: "1h 42m",
+            path: "",
             cover_url: None,
             is_downloaded: true,
         },
@@ -46,6 +48,7 @@ pub fn playlists_data() -> Vec<Playlist> {
             title: "Gym Power",
             author: "Tu",
             song_count: 56,
+            path: "",
             duration: "3h 10m",
             cover_url: None,
             is_downloaded: false,
@@ -54,6 +57,7 @@ pub fn playlists_data() -> Vec<Playlist> {
             id: 3,
             title: "Lo-Fi Study",
             author: "Tu",
+            path: "",
             song_count: 89,
             duration: "4h 25m",
             cover_url: None,
@@ -63,6 +67,7 @@ pub fn playlists_data() -> Vec<Playlist> {
             id: 4,
             title: "Road Trip",
             author: "Tu",
+            path: "",
             song_count: 32,
             duration: "2h 05m",
             cover_url: None,
@@ -71,13 +76,16 @@ pub fn playlists_data() -> Vec<Playlist> {
         Playlist {
             id: 5,
             title: "Jazz Lounge",
+            path: "",
             author: "Tu",
+
             song_count: 18,
             duration: "1h 20m",
             cover_url: None,
             is_downloaded: false,
         },
         Playlist {
+            path: "",
             id: 6,
             title: "Electro 2026",
             author: "Tu",
@@ -217,10 +225,10 @@ enum PlaylistViewState {
     Detail,
 }
 
-#[derive(Serialize)]
-struct RespuestaPath<'a> {
-    path: &'a str,
-}
+// #[derive(Serialize)]
+// struct RespuestaPath<'a> {
+//     path: &'a str,
+// }
 
 #[component]
 fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> Element {
@@ -262,7 +270,93 @@ fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> 
         }
 
         div { class: "fixed-lists",
-            onclick: move |_| async move {
+            div {
+                class: "fixed-card",
+                div { class: "fixed-icon",
+                    svg { view_box: "0 0 24 24",
+                        path { d: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z", stroke: "#7c3aed", fill: "none", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }
+                    }
+                }
+                div { class: "fixed-info",
+                    span { class: "fixed-title", "Tus Me Gusta" }
+                    span { class: "fixed-count", "247 canciones" }
+                }
+            }
+            div {
+                onclick: move |_| async move {
+                    let was_empty = player.read().active_playlist.is_empty() && player.read().current_track().is_none();
+                    match commands::playlist().await {
+                        Some(pl) => {
+                            let playlist_name = pl
+                            .title
+                            .clone()
+                            .unwrap_or_else(|| "Lista sin nombre".to_string());
+
+                        let mut loaded_tracks = Vec::new();
+
+                        for track in pl.track_list.tracks {
+                            let mut path = track.location.clone().unwrap_or_default().replace("file:///", "");
+
+                            let mut title = track.title.clone().unwrap_or_else(|| "Sin título".to_string());
+                            let mut artist = track.creator.clone().unwrap_or_else(|| "Artista desconocido".to_string());
+                            let mut duration_secs = track.duration.map(|ms| ms as f64 / 1000.0).unwrap_or(0.0);
+                            let mut image = String::new();
+
+
+                            if !path.is_empty() {
+                                if let Some(p) = commands::get_metadata(&path).await {
+                                    image = p.image;
+
+                                    if title == "Sin título" && !p.title.is_empty() {
+                                        title = p.title;
+                                    }
+                                    if artist == "Artista desconocido" && !p.artist.is_empty() {
+                                        artist = p.artist;
+                                    }
+                                    if duration_secs == 0.0 && p.duration > 0.0 {
+                                        duration_secs = p.duration;
+                                    }
+                                }
+                            }
+                            loaded_tracks.push(TrackMetadata {
+                                title,
+                                artist,
+                                duration_secs,
+                                path,
+                                image,
+                            });
+                        }
+
+                        if loaded_tracks.is_empty() {
+                                return;
+                            }
+
+                            let first_track_path = loaded_tracks[0].path.clone();
+
+                            player.write().play_playlist(loaded_tracks, playlist_name, 0); //[cite: 5]
+
+                            if was_empty && !first_track_path.is_empty() {
+                                let _ = commands::play_file(&first_track_path).await;
+                            }
+                            }
+                    _ => {}}
+            },
+                class: "fixed-card",
+                div { class: "fixed-icon",
+                    svg { view_box: "0 0 24 24",
+                        path { d: "M2 5C2 4.05719 2 3.58579 2.29289 3.29289C2.58579 3 3.05719 3 4 3H20C20.9428 3 21.4142 3 21.7071 3.29289C22 3.58579 22 4.05719 22 5C22 5.94281 22 6.41421 21.7071 6.70711C21.4142 7 20.9428 7 20 7H4C3.05719 7 2.58579 7 2.29289 6.70711C2 6.41421 2 5.94281 2 5Z", stroke: "#7c3aed", fill: "#1C274C", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }
+                        path { d: "M20.0689 8.49993C20.2101 8.49999 20.3551 8.50005 20.5 8.49805V12.9999C20.5 16.7711 20.5 18.6568 19.3284 19.8283C18.1569 20.9999 16.2712 20.9999 12.5 20.9999H11.5C7.72876 20.9999 5.84315 20.9999 4.67157 19.8283C3.5 18.6568 3.5 16.7711 3.5 12.9999V8.49805C3.64488 8.50005 3.78999 8.49999 3.93114 8.49993L11.25 8.49992L11.25 15.0454L9.55748 13.1648C9.28038 12.8569 8.80617 12.832 8.49828 13.1091C8.1904 13.3862 8.16544 13.8604 8.44254 14.1683L11.4425 17.5016C11.5848 17.6596 11.7874 17.7499 12 17.7499C12.2126 17.7499 12.4152 17.6596 12.5575 17.5016L15.5575 14.1683C15.8346 13.8604 15.8096 13.3862 15.5017 13.1091C15.1938 12.832 14.7196 12.8569 14.4425 13.1648L12.75 15.0454L12.75 8.49992L20.0689 8.49993Z", stroke: "#7c3aed", fill: "#1C274C", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }
+
+                    }
+                }
+                div { class: "fixed-info",
+                    span { class: "fixed-title", "Playlists Locales" }
+                    span { class: "fixed-count", "Importar listas de reproduccion" }
+                }
+            }
+            div {
+                class: "fixed-card",
+                            onclick: move |_| async move {
                 match commands::select_document().await {
                     Some(path) => {
                         match commands::get_metadata(&*path).await {
@@ -291,21 +385,6 @@ fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> 
                     None => web_sys::console::log_1(&"select_document: cancelled".into()),
                 }
             },
-            div {
-                class: "fixed-card",
-                div { class: "fixed-icon",
-                    svg { view_box: "0 0 24 24",
-                        path { d: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z", stroke: "#7c3aed", fill: "none", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }
-                    }
-                }
-                div { class: "fixed-info",
-                    span { class: "fixed-title", "Tus Me Gusta" }
-                    span { class: "fixed-count", "247 canciones" }
-                }
-            }
-            div {
-                class: "fixed-card",
-                onclick: move |_| {},
                 div { class: "fixed-icon",
                     svg { view_box: "0 0 24 24",
                         path { d: "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z", stroke: "#7c3aed", fill: "none", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" }
@@ -315,6 +394,7 @@ fn PlaylistList(playlists: Vec<Playlist>, on_select: EventHandler<Playlist>) -> 
                     span { class: "fixed-title", "Archivos Locales" }
                     span { class: "fixed-count", "Importar canciones" }
                 }
+
             }
         }
 

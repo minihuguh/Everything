@@ -8,8 +8,7 @@ use std::time::Duration;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FilePath;
-use crate::utils::parser;
-use crate::utils::parser::parse;
+use parser::{parse, Playlist};
 
 #[tauri::command]
 pub fn minimize_window(window: tauri::WebviewWindow) {
@@ -85,7 +84,7 @@ pub fn set_time(state: State<AppState>, time_in_seconds: u64) -> Result<(), Stri
 }
 
 #[tauri::command]
-pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
+pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<Playlist, String> {
     let (tx, rx) = mpsc::channel();
 
     app.dialog()
@@ -98,10 +97,11 @@ pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     // let response = rx.recv().map_err(|e| e.to_string())?;
 
     let file = rx.recv().unwrap_or(None);
-    let xml = fs::read_to_string(file.unwrap().to_string());
-    let temp = parse(&*xml.unwrap());
-    debug!("Datos recibidos desde PARSER: {:?}", temp);
-    // Ok(result?)
+    let xml = fs::read_to_string(file.unwrap().to_string()).unwrap();
+    let playlist = parse(&xml);
+    // info!("Respuesta enviada desde Tauri: {:?}", serde_json::to_string(&playlist));
+    // debug!("Datos recibidos desde PARSER: {:?}", temp);
+    playlist
 }
 
 #[tauri::command]
