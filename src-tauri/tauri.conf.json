@@ -13,6 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "contentProtected": false,
         "title": "tauri-app",
         "width": 1280,
         "height": 720,
