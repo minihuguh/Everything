@@ -13,6 +13,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "shared",
  "symphonia",
  "symphonia-adapter-libopus",
  "tauri",
@@ -4689,6 +4690,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5252,6 +5260,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
+ "shared",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

@@ -33,7 +33,7 @@ matroska = "0.30.1"
 base64 = "0.23.1"
 tauri-plugin-dialog = "2.7.2"
 parser = { path = "../parser"}
-
+shared = { path = "../shared"}
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

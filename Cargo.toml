@@ -17,9 +17,10 @@ serde_json = "1.0.151"
 serde = { version = "1.0.229", features = ["derive"] }
 chrono = { version = "0.4.45", features = ["wasmbind"] }
 parser = { path = "parser"}
+shared = { path = "shared"}
 
 [workspace]
-members = ["src-tauri", "parser"]
+members = ["src-tauri", "parser", "shared"]
 
 [profile.release]
 codegen-units = 1
