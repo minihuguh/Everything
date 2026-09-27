@@ -59,6 +59,8 @@ pub fn run() {
             select_document,
             get_metadata,
             open_playlist,
+            get_playlists,
+save_playlist_ipc
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
