@@ -1,7 +1,8 @@
 use super::dto::{Metadata, PlayResponse};
 use super::{err, invoke, log};
-use wasm_bindgen::prelude::*;
 use parser::Playlist;
+use shared::SavedPlaylist;
+use wasm_bindgen::prelude::*;
 
 fn args(value: serde_json::Value) -> Option<JsValue> {
     serde_wasm_bindgen::to_value(&value)
@@ -55,7 +56,6 @@ pub async fn playlist() -> Option<Playlist> {
         }
     }
 }
-
 
 pub async fn play_file(path: &str) -> Option<PlayResponse> {
     let args = args(serde_json::json!({ "path": path }))?;
@@ -130,4 +130,35 @@ pub async fn toggle_maximize() {
 
 pub async fn close_window() {
     let _ = invoke("close_window", JsValue::NULL).await;
+}
+
+pub async fn get_playlists() -> Option<Vec<SavedPlaylist>> {
+    let raw = match invoke("get_playlists", JsValue::UNDEFINED).await {
+        Ok(v) => v,
+        Err(e) => {
+            err(&format!("get_playlists: {e:?}"));
+            return None;
+        }
+    };
+    match serde_wasm_bindgen::from_value::<serde_json::Value>(raw) {
+        Ok(json) => {
+            serde_json::from_value::<Vec<SavedPlaylist>>(json.clone())
+                .map_err(|e| err(&format!("get_playlists: parse failed ({e:?}) — raw={json:?}")))
+                .ok()
+        },
+        Err(e) => {
+            err(&format!("get_playlists: JsValue -> Value failed: {e:?}"));
+            None
+        }
+    }
+}
+
+pub async fn save_playlist_ipc(playlist: SavedPlaylist) -> Result<(), String> {
+    let args = args(serde_json::json!({ "playlist": playlist }))
+        .ok_or_else(|| "Failed to serialize playlist args".to_string())?;
+
+    invoke("save_playlist_ipc", args)
+        .await
+        .map(|_| ())
+        .map_err(|e| format!("save_playlist: {e:?}"))
 }
