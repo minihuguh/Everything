@@ -1,7 +1,7 @@
 use super::dto::{Metadata, PlayResponse};
 use super::{err, invoke, log};
 use parser::Playlist;
-use shared::SavedPlaylist;
+use shared::{SavedPlaylist, StatisticsData};
 use wasm_bindgen::prelude::*;
 
 fn args(value: serde_json::Value) -> Option<JsValue> {
@@ -161,4 +161,27 @@ pub async fn save_playlist_ipc(playlist: SavedPlaylist) -> Result<(), String> {
         .await
         .map(|_| ())
         .map_err(|e| format!("save_playlist: {e:?}"))
+}
+
+pub async fn get_stat() -> Option<StatisticsData> {
+    log("Ejecutado get_stat");
+    let raw = match invoke("get_statistics", JsValue::UNDEFINED).await {
+        Ok(v) => v,
+        Err(e) => {
+            err(&format!("get_stat: {e:?}"));
+            return None;
+        }
+    };
+    match serde_wasm_bindgen::from_value::<serde_json::Value>(raw) {
+        Ok(json) => {
+            serde_json::from_value::<Vec<StatisticsData>>(json.clone())
+                .map_err(|e| err(&format!("get_stat: parse failed ({e:?}) — raw={json:?}")))
+                .ok()
+                .and_then(|mut vec| vec.pop())
+        },
+        Err(e) => {
+            err(&format!("get_stat: JsValue -> Value failed: {e:?}"));
+            None
+        }
+    }
 }
