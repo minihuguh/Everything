@@ -1,7 +1,10 @@
 use crate::state::TrackMetadata;
 use crate::AppState;
 use log::{debug, error, info};
+use parser::{parse, Playlist};
 use serde_json::Value;
+use shared::SavedPlaylist;
+use shared::StatisticsData;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc;
@@ -9,8 +12,6 @@ use std::time::Duration;
 use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FilePath;
-use parser::{parse, Playlist};
-use shared::SavedPlaylist;
 
 #[tauri::command]
 pub fn minimize_window(window: tauri::WebviewWindow) {
@@ -71,7 +72,10 @@ pub fn set_volume(state: State<AppState>, volume: f32) {
 #[tauri::command]
 pub fn get_time(state: State<AppState>) -> u64 {
     let valor = state.player.lock().unwrap().get_time();
-    info!("Operación exitosa. Datos recibidos: {:?}", valor.to_string());
+    info!(
+        "Operación exitosa. Datos recibidos: {:?}",
+        valor.to_string()
+    );
     valor
 }
 
@@ -109,8 +113,8 @@ pub fn open_playlist<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<Play
         .into_path()
         .map_err(|_| "Invalid file route.".to_string())?;
 
-    let xml = fs::read_to_string(&path)
-        .map_err(|err| format!("Error reading the file: {}", err))?;
+    let xml =
+        fs::read_to_string(&path).map_err(|err| format!("Error reading the file: {}", err))?;
 
     let playlist = parse(&xml);
     playlist
@@ -161,17 +165,16 @@ pub fn is_playing(state: State<AppState>) -> bool {
 }
 
 fn get_playlists_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join("playlists.json"))
 }
 
 #[tauri::command]
-pub fn get_playlists<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<Vec<SavedPlaylist>, String> {
+pub fn get_playlists<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<SavedPlaylist>, String> {
     let path = get_playlists_path(&app)?;
     if !path.exists() {
         return Ok(Vec::new());
@@ -179,12 +182,10 @@ pub fn get_playlists<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<Vec<
 
     let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
 
-    // 1. Intentamos deserializar como Lista [ SavedPlaylist ]
     if let Ok(playlists) = serde_json::from_str::<Vec<SavedPlaylist>>(&content) {
         return Ok(playlists);
     }
 
-    // 2. Si falla, intentamos deserializar como un solo Objeto { SavedPlaylist }
     if let Ok(single_playlist) = serde_json::from_str::<SavedPlaylist>(&content) {
         return Ok(vec![single_playlist]);
     }
@@ -195,7 +196,7 @@ pub fn get_playlists<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<Vec<
 #[tauri::command]
 pub fn save_playlist_ipc<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-    playlist: SavedPlaylist
+    playlist: SavedPlaylist,
 ) -> Result<(), String> {
     let mut playlists = get_playlists(app.clone()).unwrap_or_default();
 
@@ -206,7 +207,55 @@ pub fn save_playlist_ipc<R: tauri::Runtime>(
     }
 
     let path = get_playlists_path(&app)?;
-    // Serializamos el vector completo para mantener el formato [ { ... } ]
+    let json = serde_json::to_string_pretty(&playlists).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+fn get_statistics_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("statistics.json"))
+}
+
+#[tauri::command]
+pub fn get_statistics<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<StatisticsData>, String> {
+    let path = get_statistics_path(&app)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+
+    if let Ok(playlists) = serde_json::from_str::<Vec<StatisticsData>>(&content) {
+        return Ok(playlists);
+    }
+
+    if let Ok(single_playlist) = serde_json::from_str::<StatisticsData>(&content) {
+        return Ok(vec![single_playlist]);
+    }
+
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+pub fn save_statistics_ipc<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    playlist: SavedPlaylist,
+) -> Result<(), String> {
+    let mut playlists = get_playlists(app.clone()).unwrap_or_default();
+
+    if let Some(pos) = playlists.iter().position(|p| p.id == playlist.id) {
+        playlists[pos] = playlist;
+    } else {
+        playlists.push(playlist);
+    }
+
+    let path = get_playlists_path(&app)?;
     let json = serde_json::to_string_pretty(&playlists).map_err(|e| e.to_string())?;
     fs::write(path, json).map_err(|e| e.to_string())?;
 
