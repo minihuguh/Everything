@@ -1,12 +1,13 @@
 mod audio;
-mod state;
 mod commands;
+mod state;
 
 use audio::player::AudioPlayer;
 use log::{debug, error, info, warn};
 use std::sync::Mutex;
 use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_log::{Target, TargetKind};
+use tauri_plugin_single_instance;
 // use audio::symphonia_source::SymphoniaSource;
 
 use crate::commands::*;
@@ -17,12 +18,15 @@ pub struct AppState {
 }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-
-//noinspection D
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let player = AudioPlayer::new().expect("No se pudo crear el reproductor");
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            let _ = app.get_webview_window("main")
+                .expect("no main window")
+                .set_focus();
+        }))
         .setup(|app| {
             #[cfg(debug_assertions)]
             {
@@ -36,7 +40,9 @@ pub fn run() {
             tauri_plugin_log::Builder::new()
                 .targets([
                     Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::LogDir { file_name: Some("logs".to_string()) }),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("logs".to_string()),
+                    }),
                 ])
                 .build(),
         )
@@ -60,7 +66,8 @@ pub fn run() {
             get_metadata,
             open_playlist,
             get_playlists,
-save_playlist_ipc
+            save_playlist_ipc,
+            get_statistics
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
