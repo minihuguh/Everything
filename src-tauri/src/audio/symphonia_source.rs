@@ -51,6 +51,59 @@ pub struct SymphoniaSource {
     metadata: SimpleMetadata,
 }
 
+use std::io::BufWriter;
+use image::codecs::png::PngEncoder;
+use image::{ColorType, ExtendedColorType, ImageEncoder};
+use fast_image_resize::{Resizer, ResizeAlg, FilterType, ResizeOptions};
+use fast_image_resize::images::Image;
+
+fn resize_image_bytes(
+    og_bytes: &[u8],
+    new_width: u32,
+    new_height: u32
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    
+    let img = image::load_from_memory(og_bytes)?;
+    let og_width = img.width();
+    let og_height = img.height();
+    
+    let src_rgba = img.to_rgba8();
+    
+    let src_image = Image::from_vec_u8(
+        og_width,
+        og_height,
+        src_rgba.into_raw(),
+        fast_image_resize::PixelType::U8x4,
+    )?;
+    
+    let mut dst_image = Image::new(
+        new_width,
+        new_height,
+        src_image.pixel_type(),
+    );
+    
+    let opt = ResizeOptions::new()
+        .resize_alg(ResizeAlg::Convolution(FilterType::Bilinear))
+        .fit_into_destination(Some((0.5, 0.5)));
+
+    let mut resizer = Resizer::new();
+    resizer.resize(&src_image, &mut dst_image, &opt)?;
+    
+    let mut result = Vec::new();
+    let mut writer = BufWriter::new(&mut result);
+
+    PngEncoder::new(&mut writer).write_image(
+        dst_image.buffer(),
+        new_width,
+        new_height,
+        ExtendedColorType::from(ColorType::Rgba8),
+    )?;
+
+    drop(writer);
+
+    Ok(result)
+}
+
 impl SymphoniaSource {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
         let path = path.as_ref();
@@ -90,7 +143,6 @@ impl SymphoniaSource {
             metadata.artist = Some("Desconocido".to_string());
         }
 
-        // Opción A: obtener la pista de audio por defecto (recomendado en 0.6)
         let track = format
             .default_track(TrackType::Audio)
             .ok_or("No se encontró ninguna pista de audio soportada")?;
@@ -172,7 +224,7 @@ impl SymphoniaSource {
     fn extract_simple_metadata(format: &mut Box<dyn FormatReader>) -> SimpleMetadata {
         let mut title = None;
         let mut artist = None;
-        let mut image = None;
+        let mut raw_image: Option<Vec<u8>> = None;
 
         let metadata = format.metadata();
 
@@ -187,13 +239,13 @@ impl SymphoniaSource {
                         _ => {}
                     }
                     if let Some(visual) = &rev.media.visuals.first() {
-                        image = Option::from(visual.data.to_vec());
+                        raw_image = Some(Vec::from(visual.data.clone()));
                     }
                 }
             }
 
             // Per-track tags (solo si falta algo)
-            if title.is_none() || artist.is_none()  {
+            if title.is_none() || artist.is_none() {
                 for per_track in &rev.per_track {
                     for tag in &per_track.metadata.tags {
                         if let Some(std_tag) = &tag.std {
@@ -207,22 +259,23 @@ impl SymphoniaSource {
                                 _ => {}
                             }
                             if let Some(visual) = &rev.media.visuals.first() {
-                                image = Option::from(visual.data.to_vec());
+                                raw_image = Some(Vec::from(visual.data.clone()));
                             }
                         }
                     }
                 }
             }
-
-
-
         }
+
+        let image = raw_image.and_then(|bytes| {
+            resize_image_bytes(&bytes, 64, 64).ok()
+        });
 
         SimpleMetadata {
             title,
             artist,
             duration: None,
-            image
+            image,
         }
     }
 
