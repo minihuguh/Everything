@@ -1,160 +1,87 @@
+use std::sync::Mutex;
 use dioxus::prelude::*;
+use shared::{StatisticsData, StatMetric, TopSong, TopArtist, ComparisonBar};
+use crate::ipc::commands::get_stat;
 
-#[derive(Clone, PartialEq)]
-pub struct TimeFilter {
-    pub label: &'static str,
-    pub value: &'static str,
-}
+static STATS_CACHE: Mutex<Option<StatisticsData>> = Mutex::new(None);
 
-#[derive(Clone, PartialEq)]
-pub struct StatMetric {
-    pub label: &'static str,
-    pub value: &'static str,
-    pub sub: &'static str,
-    pub icon_svg: &'static str,
-}
+pub async fn get_cached_stat() -> StatisticsData {
+    {
+        let cache = STATS_CACHE.lock().unwrap();
+        if let Some(ref data) = *cache {
+            return data.clone();
+        }
+    }
 
-#[derive(Clone, PartialEq)]
-pub struct TopSong {
-    pub rank: usize,
-    pub title: &'static str,
-    pub artist: &'static str,
-    pub plays: &'static str,
-    pub cover_url: Option<&'static str>,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct TopArtist {
-    pub rank: usize,
-    pub name: &'static str,
-    pub time: &'static str,
-    pub cover_url: Option<&'static str>,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct HeatmapCell {
-    pub level: u8,
-}
-
-#[derive(Clone, PartialEq)]
-pub struct ComparisonBar {
-    pub label: &'static str,
-    pub value: f64,
-    pub display: &'static str,
-    pub is_current: bool,
-    pub delta: &'static str,
-    pub delta_type: &'static str,
-}
-
-pub fn time_filters() -> Vec<TimeFilter> {
-    vec![
-        TimeFilter { label: "Últimos 7 días", value: "7d" },
-        TimeFilter { label: "Últimos 30 días", value: "30d" },
-        TimeFilter { label: "Este año", value: "year" },
-        TimeFilter { label: "Histórico", value: "all" },
-    ]
-}
-
-pub fn summary_metrics() -> Vec<StatMetric> {
-    vec![
-        StatMetric {
-            label: "Tiempo total",
-            value: "342h 18m",
-            sub: "+12% vs mes anterior",
-            icon_svg: "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>",
-        },
-        StatMetric {
-            label: "Canciones y artistas",
-            value: "1,247 / 312",
-            sub: "Canciones reproducidas / Artistas distintos",
-            icon_svg: "<svg viewBox='0 0 24 24'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>",
-        },
-        StatMetric {
-            label: "Racha actual",
-            value: "23 días",
-            sub: "Récord: 45 días",
-            icon_svg: "<svg viewBox='0 0 24 24'><path d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/></svg>",
-        },
-    ]
-}
-
-pub fn top_songs() -> Vec<TopSong> {
-    vec![
-        TopSong { rank: 1, title: "Blinding Lights", artist: "The Weeknd", plays: "142", cover_url: None },
-        TopSong { rank: 2, title: "Levitating", artist: "Dua Lipa", plays: "118", cover_url: None },
-        TopSong { rank: 3, title: "Stay", artist: "The Kid LAROI", plays: "97", cover_url: None },
-        TopSong { rank: 4, title: "Peaches", artist: "Justin Bieber", plays: "84", cover_url: None },
-        TopSong { rank: 5, title: "Good 4 U", artist: "Olivia Rodrigo", plays: "76", cover_url: None },
-    ]
-}
-
-pub fn top_artists() -> Vec<TopArtist> {
-    vec![
-        TopArtist { rank: 1, name: "The Weeknd", time: "48h 12m", cover_url: None },
-        TopArtist { rank: 2, name: "Daft Punk", time: "36h 45m", cover_url: None },
-        TopArtist { rank: 3, name: "Tame Impala", time: "29h 30m", cover_url: None },
-        TopArtist { rank: 4, name: "Dua Lipa", time: "22h 15m", cover_url: None },
-        TopArtist { rank: 5, name: "Fleetwood Mac", time: "18h 40m", cover_url: None },
-    ]
-}
-
-pub fn heatmap_data() -> Vec<Vec<HeatmapCell>> {
-    vec![
-        vec![HeatmapCell { level: 0 }, HeatmapCell { level: 1 }, HeatmapCell { level: 2 }, HeatmapCell { level: 3 }, HeatmapCell { level: 1 }, HeatmapCell { level: 0 }, HeatmapCell { level: 2 }],
-        vec![HeatmapCell { level: 1 }, HeatmapCell { level: 3 }, HeatmapCell { level: 4 }, HeatmapCell { level: 2 }, HeatmapCell { level: 3 }, HeatmapCell { level: 1 }, HeatmapCell { level: 0 }],
-        vec![HeatmapCell { level: 2 }, HeatmapCell { level: 4 }, HeatmapCell { level: 5 }, HeatmapCell { level: 4 }, HeatmapCell { level: 2 }, HeatmapCell { level: 1 }, HeatmapCell { level: 1 }],
-        vec![HeatmapCell { level: 1 }, HeatmapCell { level: 2 }, HeatmapCell { level: 3 }, HeatmapCell { level: 5 }, HeatmapCell { level: 4 }, HeatmapCell { level: 2 }, HeatmapCell { level: 0 }],
-        vec![HeatmapCell { level: 0 }, HeatmapCell { level: 1 }, HeatmapCell { level: 2 }, HeatmapCell { level: 3 }, HeatmapCell { level: 2 }, HeatmapCell { level: 1 }, HeatmapCell { level: 0 }],
-    ]
-}
-
-pub fn comparison_data() -> Vec<ComparisonBar> {
-    vec![
-        ComparisonBar { label: "Este mes", value: 78.5, display: "78h 30m", is_current: true, delta: "+15%", delta_type: "up" },
-        ComparisonBar { label: "Mes pasado", value: 68.2, display: "68h 12m", is_current: false, delta: "", delta_type: "neutral" },
-    ]
+    if let Some(data) = get_stat().await {
+        let mut cache = STATS_CACHE.lock().unwrap();
+        *cache = Some(data.clone());
+        return data;
+    }
+    
+    StatisticsData {
+        filters: vec![],
+        data_by_filter: std::collections::HashMap::new(),
+    }
 }
 
 #[component]
 pub fn Stadistics() -> Element {
-    let filters = time_filters();
-    let metrics = summary_metrics();
-    let songs = top_songs();
-    let artists = top_artists();
-    let heatmap = heatmap_data();
-    let comparison = comparison_data();
-    let mut active_filter = use_signal(|| "30d");
+    let stats_data = use_resource(move || async move {
+        get_cached_stat().await
+    });
+
+    let mut active_filter = use_signal(|| "7d".to_string());
+    let current_filter_key = active_filter();
+
+    let stats = stats_data
+        .value()
+        .read()
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| StatisticsData {
+            filters: vec![],
+            data_by_filter: std::collections::HashMap::new(),
+        });
+
+    let current_metrics = stats
+        .data_by_filter
+        .get(&current_filter_key)
+        .cloned()
+        .unwrap_or_default();
 
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/stadistics.css") }
 
         div { class: "stats-container",
-            TimeFilters { filters, active_filter }
-            SummaryGrid { metrics }
-
-            div { class: "tops-grid",
-                TopSongsList { songs }
-                TopArtistsList { artists }
+            TimeFilters {
+                filters: stats.filters,
+                active_filter
             }
 
-            // ActivityHeatmap { heatmap }
-            // MoodIndicator {}
-            MonthlyComparison { comparison }
+            SummaryGrid { metrics: current_metrics.metrics }
+
+            div { class: "tops-grid",
+                TopSongsList { songs: current_metrics.top_songs }
+                TopArtistsList { artists: current_metrics.top_artists }
+            }
+
+            MonthlyComparison { comparison: current_metrics.comparison }
             GeneratePlaylistButton {}
         }
     }
 }
 
 #[component]
-fn TimeFilters(filters: Vec<TimeFilter>, active_filter: Signal<&'static str>) -> Element {
+fn TimeFilters(filters: Vec<shared::TimeFilter>, active_filter: Signal<String>) -> Element {
     rsx! {
         div { class: "time-filters",
-            for (idx, filter) in filters.iter().enumerate() {
+            for filter in filters.iter() {
                 FilterButton {
-                    key: "{idx}",
-                    value: filter.value,
-                    label: filter.label,
-                    active_filter,
+                    key: "{filter.value}",
+                    value: filter.value.clone(),
+                    label: filter.label.clone(),
+                    active_filter: active_filter,
                 }
             }
         }
@@ -162,12 +89,12 @@ fn TimeFilters(filters: Vec<TimeFilter>, active_filter: Signal<&'static str>) ->
 }
 
 #[component]
-fn FilterButton(value: &'static str, label: &'static str, active_filter: Signal<&'static str>) -> Element {
-    let is_active = value == active_filter();
+fn FilterButton(value: String, label: String, mut active_filter: Signal<String>) -> Element {
+    let is_active = value == *active_filter.read();
     rsx! {
         button {
             class: if is_active { "time-filter-btn active" } else { "time-filter-btn" },
-            onclick: move |_| active_filter.set(value),
+            onclick: move |_| active_filter.set(value.clone()),
             "{label}"
         }
     }
@@ -180,10 +107,9 @@ fn SummaryGrid(metrics: Vec<StatMetric>) -> Element {
             for (idx, metric) in metrics.iter().enumerate() {
                 StatCard {
                     key: "{idx}",
-                    label: metric.label,
-                    value: metric.value,
-                    sub: metric.sub,
-                    icon_svg: metric.icon_svg,
+                    label: &*metric.label.clone(),
+                    value: &*metric.value.clone(),
+                    sub: &*metric.sub.clone(),
                 }
             }
         }
@@ -191,7 +117,14 @@ fn SummaryGrid(metrics: Vec<StatMetric>) -> Element {
 }
 
 #[component]
-fn StatCard(label: &'static str, value: &'static str, sub: &'static str, icon_svg: &'static str) -> Element {
+fn StatCard(label: String, value: String, sub: String) -> Element {
+    // Iconos dinámicos basados en la etiqueta de la métrica
+    let icon_svg = match label.as_str() {
+        "Tiempo total" => "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>",
+        "Canciones y artistas" => "<svg viewBox='0 0 24 24'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>",
+        _ => "<svg viewBox='0 0 24 24'><path d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/></svg>",
+    };
+
     rsx! {
         div { class: "stat-card",
             div { class: "stat-card-header",
@@ -217,11 +150,12 @@ fn TopSongsList(songs: Vec<TopSong>) -> Element {
             div { class: "top-list",
                 for song in songs.iter() {
                     TopSongItem {
+                        key: "{song.rank}",
                         rank: song.rank,
-                        title: song.title,
-                        artist: song.artist,
-                        plays: song.plays,
-                        cover_url: song.cover_url,
+                        title: &*song.title.clone(),
+                        artist: &*song.artist.clone(),
+                        plays: &*song.plays.clone(),
+                        cover_url: song.cover_url.clone(),
                     }
                 }
             }
@@ -230,7 +164,7 @@ fn TopSongsList(songs: Vec<TopSong>) -> Element {
 }
 
 #[component]
-fn TopSongItem(rank: usize, title: &'static str, artist: &'static str, plays: &'static str, cover_url: Option<&'static str>) -> Element {
+fn TopSongItem(rank: usize, title: String, artist: String, plays: String, cover_url: Option<String>) -> Element {
     let rank_class = match rank {
         1 => "top-rank gold",
         2 => "top-rank silver",
@@ -272,10 +206,11 @@ fn TopArtistsList(artists: Vec<TopArtist>) -> Element {
             div { class: "top-list",
                 for artist in artists.iter() {
                     TopArtistItem {
+                        key: "{artist.rank}",
                         rank: artist.rank,
-                        name: artist.name,
-                        time: artist.time,
-                        cover_url: artist.cover_url,
+                        name: artist.name.clone(),
+                        time: artist.time.clone(),
+                        cover_url: artist.cover_url.clone(),
                     }
                 }
             }
@@ -284,7 +219,7 @@ fn TopArtistsList(artists: Vec<TopArtist>) -> Element {
 }
 
 #[component]
-fn TopArtistItem(rank: usize, name: &'static str, time: &'static str, cover_url: Option<&'static str>) -> Element {
+fn TopArtistItem(rank: usize, name: String, time: String, cover_url: Option<String>) -> Element {
     let rank_class = match rank {
         1 => "top-rank gold",
         2 => "top-rank silver",
@@ -314,77 +249,26 @@ fn TopArtistItem(rank: usize, name: &'static str, time: &'static str, cover_url:
 }
 
 #[component]
-fn ActivityHeatmap(heatmap: Vec<Vec<HeatmapCell>>) -> Element {
-    let days = vec!["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-    rsx! {
-        div { class: "stats-section",
-            div { class: "stats-section-header",
-                h2 { class: "stats-section-title", "Patrón de actividad" }
-                span { class: "stats-section-subtitle", "Últimas 5 semanas" }
-            }
-            div { class: "heatmap-container",
-                div { class: "heatmap-grid",
-                    for row in heatmap.iter() {
-                        for cell in row.iter() {
-                            div { class: "heatmap-cell level-{cell.level}" }
-                        }
-                    }
-                }
-                div { class: "heatmap-labels",
-                    for day in days.iter() {
-                        span { "{day}" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn MoodIndicator() -> Element {
-    let mood_value = 72.0;
-    let mood_label = if mood_value > 60.0 { "Descubridor" } else { "Zona de confort" };
-
-    rsx! {
-        div { class: "stats-section",
-            div { class: "stats-section-header",
-                h2 { class: "stats-section-title", "Estilo de escucha" }
-            }
-            div { class: "mood-container",
-                div { class: "mood-current", "{mood_label}" }
-                div { class: "mood-bar-track",
-                    div { class: "mood-bar-fill", style: "width: {mood_value}%" }
-                }
-                div { class: "mood-labels",
-                    span { "Zona de confort" }
-                    span { "Descubridor" }
-                }
-            }
-        }
-    }
-}
-
-#[component]
 fn MonthlyComparison(comparison: Vec<ComparisonBar>) -> Element {
     let max_val = comparison.iter().map(|c| c.value).fold(0.0, f64::max);
 
     rsx! {
         div { class: "stats-section",
             div { class: "stats-section-header",
-                h2 { class: "stats-section-title", "Comparativa mensual" }
+                h2 { class: "stats-section-title", "Comparativa" }
             }
             div { class: "comparison-container",
                 div { class: "comparison-bars",
                     for bar in comparison.iter() {
                         ComparisonRow {
-                            label: bar.label,
+                            key: "{bar.label}",
+                            label: bar.label.clone(),
                             value: bar.value,
-                            display: bar.display,
+                            display: bar.display.clone(),
                             max_val,
                             is_current: bar.is_current,
-                            delta: bar.delta,
-                            delta_type: bar.delta_type,
+                            delta: bar.delta.clone(),
+                            delta_type: bar.delta_type.clone(),
                         }
                     }
                 }
@@ -392,12 +276,11 @@ fn MonthlyComparison(comparison: Vec<ComparisonBar>) -> Element {
         }
     }
 }
-
 #[component]
-fn ComparisonRow(label: &'static str, value: f64, display: &'static str, max_val: f64, is_current: bool, delta: &'static str, delta_type: &'static str) -> Element {
+fn ComparisonRow(label: String, value: f64, display: String, max_val: f64, is_current: bool, delta: String, delta_type: String) -> Element {
     let pct = if max_val > 0.0 { (value / max_val) * 100.0 } else { 0.0 };
     let fill_class = if is_current { "comparison-fill" } else { "comparison-fill secondary" };
-    let delta_class = match delta_type {
+    let delta_class = match delta_type.as_str() {
         "up" => "comparison-delta up",
         "down" => "comparison-delta down",
         _ => "comparison-delta neutral",
