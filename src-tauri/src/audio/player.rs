@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use super::symphonia_source::SymphoniaSource;
 use crate::state::TrackMetadata;
@@ -31,34 +32,35 @@ impl AudioPlayer {
     }
 
     pub fn extract_metadata(&self, path: &str) -> Result<TrackMetadata, String> {
-        {
-            info!("Extracting metadata from {}", path);
-            let cache = self.metadata_cache.lock().unwrap();
-            if let Some(meta) = cache.get(path) {
-                info!("Using cache");
-                return Ok(meta.clone());
+        let mut cache = self.metadata_cache.lock().unwrap();
+
+        match cache.entry(path.to_string()) {
+            Entry::Occupied(entry) => {
+                Ok(entry.get().clone())
+            }
+            Entry::Vacant(entry) => {
+
+                let source = SymphoniaSource::new(path)
+                    .map_err(|e| format!("Error al cargar el archivo de audio: {}", e))?;
+
+                let meta = source.metadata();
+                let image = meta.image
+                    .as_ref()
+                    .map(|bytes| STANDARD.encode(bytes))
+                    .unwrap_or_default();
+
+                let track_meta = TrackMetadata {
+                    title: meta.title.clone().unwrap_or_default(),
+                    artist: meta.artist.clone().unwrap_or_default(),
+                    duration: meta.duration.map(|d| d.as_secs_f64()).unwrap_or(0.0),
+                    path: path.to_string(),
+                    image,
+                };
+
+                // Guardamos en caché y devolvemos la referencia clonada
+                Ok(entry.insert(track_meta).clone())
             }
         }
-
-        let source = SymphoniaSource::new(path).map_err(|e| format!("Error al cargar: {}", e))?;
-        let meta = source.metadata();
-        let mut image = String::new();
-        if let Some(bytes) = &meta.image {
-            image = STANDARD.encode(bytes);
-        }
-
-        let track_meta = TrackMetadata {
-            title: meta.title.clone().unwrap_or_default(),
-            artist: meta.artist.clone().unwrap_or_default(),
-            duration: meta.duration.map(|d| d.as_secs_f64()).unwrap_or(0.0),
-            path: path.to_string(),
-            image,
-        };
-
-        let mut cache = self.metadata_cache.lock().unwrap();
-        cache.insert(path.to_string(), track_meta.clone());
-
-        Ok(track_meta)
     }
 
     pub fn play_file(&self, path: &str) -> Result<Value, String> {
