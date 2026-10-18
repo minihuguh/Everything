@@ -1,10 +1,10 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 use crate::ipc::{commands, log};
 use crate::state::TrackMetadata;
 use crate::state::use_player_state;
 use dioxus::prelude::*;
 use shared::{SavedPlaylist, SavedTrack};
-use wasm_bindgen::JsValue;
 
 #[derive(Clone, PartialEq)]
 pub struct Playlist {
@@ -65,23 +65,46 @@ pub struct SuggestedSong {
 //     ]
 // }
 
-static STATS_CACHE: Mutex<Option<Vec<SavedPlaylist>>> = Mutex::new(None);
+static STATS_CACHE: Mutex<Option<HashMap<String, SavedPlaylist>>> = Mutex::new(None);
 
 pub async fn get_cached_stat() -> Vec<SavedPlaylist> {
     {
         let cache = STATS_CACHE.lock().unwrap();
-        if let Some(ref data) = *cache {
-            return data.clone();
+        if let Some(ref map) = *cache {
+            web_sys::console::log_1(&"Imprimiendo playlist from HashMap cache".into());
+            return map.values().cloned().collect();
         }
     }
 
     if let Some(data) = commands::get_playlists().await {
         let mut cache = STATS_CACHE.lock().unwrap();
-        *cache = Some(data.clone());
-        return data;
+        let map: HashMap<String, SavedPlaylist> = data
+            .into_iter()
+            .map(|p| (p.id.clone(), p))
+            .collect();
+
+        let result = map.values().cloned().collect();
+        *cache = Some(map);
+        web_sys::console::log_1(&"Imprimiendo desde cero e inicializando caché".into());
+
+        return result;
     }
 
     Vec::new()
+}
+
+// Implementaciones para la cache
+pub fn update_single_playlist_cache(playlist: SavedPlaylist) {
+    let mut cache = STATS_CACHE.lock().unwrap();
+    if let Some(ref mut map) = *cache {
+        map.insert(playlist.id.clone(), playlist);
+    }
+}
+pub fn remove_playlist_from_cache(id: &str) {
+    let mut cache = STATS_CACHE.lock().unwrap();
+    if let Some(ref mut map) = *cache {
+        map.remove(id);
+    }
 }
 
 pub fn invalidate_tracks_cache() {
@@ -89,55 +112,57 @@ pub fn invalidate_tracks_cache() {
     *cache = None;
 }
 
+//noinspection D
 #[component]
 pub fn PlaylistView() -> Element {
     let mut view_state = use_signal(|| PlaylistViewState::List);
     let mut selected_playlist = use_signal(|| None::<Playlist>);
 
     let mut playlists_resource = use_resource(|| async move {
+        let mut mapped_playlists = Vec::new();
         let p = get_cached_stat().await;
 
         if p.is_empty() {
             return None;
         }
 
-        web_sys::console::log_1(&"Imprimiendo playlist from cache/backend".into());
-        let mensaje = JsValue::from_str(&format!("{:?}", p));
-        web_sys::console::log_1(&mensaje);
+        for sp in p {
+            let total_secs = sp.tracks.iter().map(|t| t.duration_secs).sum::<f64>();
+            let mins = (total_secs / 60.0) as usize;
 
-        let mapped_playlists = p
-            .into_iter()
-            .map(|sp| {
-                let total_secs = sp.tracks.iter().map(|t| t.duration_secs).sum::<f64>();
-                let mins = (total_secs / 60.0) as usize;
-
-                Playlist {
-                    id: sp.id,
-                    title: sp.title,
-                    author: sp.author,
-                    song_count: sp.tracks.len(),
-                    duration: format!("{mins}m"),
-                    cover_url: sp
-                        .tracks
-                        .first()
-                        .map(|t| t.image.clone())
-                        .filter(|img| !img.is_empty()),
-                    path: sp.file_path,
-                    is_downloaded: true,
-                    tracks: sp
-                        .tracks
-                        .into_iter()
-                        .map(|st| TrackMetadata {
-                            title: st.title,
-                            artist: st.artist,
-                            duration_secs: st.duration_secs,
-                            path: st.path,
-                            image: st.image,
-                        })
-                        .collect(),
+            let mut cover_url = None;
+            if let Some(first_track) = sp.tracks.first() {
+                if !first_track.path.is_empty() {
+                    if let Some(meta) = commands::get_metadata(&first_track.path).await {
+                        if !meta.image.is_empty() {
+                            cover_url = Some(meta.image);
+                        }
+                    }
                 }
-            })
-            .collect::<Vec<Playlist>>();
+            }
+
+            mapped_playlists.push(Playlist {
+                id: sp.id,
+                title: sp.title,
+                author: sp.author,
+                song_count: sp.tracks.len(),
+                duration: format!("{mins}m"),
+                cover_url,
+                path: sp.file_path,
+                is_downloaded: false,
+                tracks: sp
+                    .tracks
+                    .into_iter()
+                    .map(|st| TrackMetadata {
+                        title: st.title,
+                        artist: st.artist,
+                        duration_secs: st.duration_secs,
+                        path: st.path,
+                        image: String::new(), // Mantenemos las canciones livianas
+                    })
+                    .collect(),
+            });
+        }
 
         Some(mapped_playlists)
     });
@@ -227,8 +252,9 @@ fn PlaylistList(
                                     total_duration_secs: 0.0,
                                 };
 
-                                if let Ok(_) = commands::save_playlist_ipc(new_playlist).await {
+                                if let Ok(_) = commands::save_playlist_ipc(new_playlist.clone()).await {
                                     log("Nueva playlist creada.");
+                                    update_single_playlist_cache(new_playlist);
                                     refresh_trigger.call(());
                                 }
                             });
