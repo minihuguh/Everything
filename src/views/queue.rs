@@ -146,6 +146,11 @@ fn QueueActivePlaylistList(player: Signal<crate::state::PlayerState>) -> Element
                             number: idx + 1,
                             on_click: Some(EventHandler::new(move |_| {
                                 player.write().jump_to_playlist(idx);
+                                if let Some(track) = player.read().current_track().cloned() {
+                                spawn (async move {
+                                    let _ = commands::play_file(&track.path).await;
+                                });
+                            }
                             })),
                             on_remove: None,
                         }
